@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Atualizar Empresa Específica - Yampi</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      padding: 15px;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1.4;
+    }
+
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      padding: 25px;
+      width: 100%;
+      max-width: 580px;
+      position: relative;
+      overflow: hidden;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    .container::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #4285F4, #34A853, #FBBC05, #EA4335);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .header h2 {
+      color: #2c3e50;
+      font-size: 22px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .header .icon {
+      font-size: 26px;
+      color: #4285F4;
+    }
+
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 15px;
+      color: #7f8c8d;
+      font-style: italic;
+    }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid #e1e8ed;
+      border-top: 2px solid #4285F4;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      color: #34495e;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+
+    select {
+      width: 100%;
+      padding: 10px 16px;
+      border: 2px solid #e1e8ed;
+      border-radius: 8px;
+      font-size: 15px;
+      color: #2c3e50;
+      background: white;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+      background-position: right 12px center;
+      background-repeat: no-repeat;
+      background-size: 16px;
+      padding-right: 40px;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #4285F4;
+      box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.1);
+      transform: translateY(-1px);
+    }
+
+    .stats {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e1e8ed;
+      font-size: 12px;
+      color: #7f8c8d;
+    }
+
+    .stat-item {
+      text-align: center;
+      flex: 1;
+    }
+
+    .stat-value {
+      font-weight: 600;
+      color: #2c3e50;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      min-width: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #4285F4, #3367D6);
+      color: white;
+      box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: linear-gradient(135deg, #3367D6, #2a56c6);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(66, 133, 244, 0.4);
+    }
+
+    .btn-secondary {
+      background: #f8f9fa;
+      color: #5f6368;
+      border: 1px solid #dadce0;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: #f1f3f4;
+      border-color: #c8ccd0;
+    }
+
+    .log-container {
+      background: #f8f9fa;
+      border: 1px solid #e9ecef;
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 12px;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+
+    .log-display {
+      background: #ffffff;
+      border: 1px solid #dee2e6;
+      border-radius: 6px;
+      padding: 10px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      color: #495057;
+      min-height: 60px;
+      word-wrap: break-word;
+      line-height: 1.3;
+      animation: logPulse 2s infinite;
+    }
+
+    @keyframes logPulse {
+      0% { border-color: #dee2e6; }
+      50% { border-color: #4285F4; }
+      100% { border-color: #dee2e6; }
+    }
+
+    .message {
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      font-size: 13px;
+      font-weight: 500;
+      text-align: center;
+    }
+
+    .message.success {
+      background: #e8f5e8;
+      border: 1px solid #4caf50;
+      color: #2e7d32;
+    }
+
+    .message.error {
+      background: #fee;
+      border: 1px solid #fcc;
+      color: #c33;
+    }
+
+    .message.warning {
+      background: #fff8e1;
+      border: 1px solid #ffcc02;
+      color: #f57c00;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .fade-in {
+      animation: fadeIn 0.5s ease-in;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>
+        <span class="icon">🏢</span>
+        Atualizar Empresa Específica
+      </h2>
+    </div>
+
+    <div id="loadingState" class="loading">
+      <div class="spinner"></div>
+      Carregando empresas configuradas...
+    </div>
+
+    <div id="mainForm" style="display: none;">
+      <div id="messageArea"></div>
+
+      <div class="form-group">
+        <label for="accountSelect">Escolha uma empresa para atualizar:</label>
+        <select id="accountSelect">
+          <option value="">-- Selecione a empresa --</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="aliasSelect">
+          Alias (Opcional):
+          <span style="font-size: 11px; color: #666;">
+            Deixe vazio se desejar processar todos os aliases da empresa.
+          </span>
+        </label>
+        <select id="aliasSelect" disabled>
+          <option value="">-- Todos os aliases --</option>
+        </select>
+      </div>
+
+      <div class="buttons">
+        <button type="button" class="btn-secondary" onclick="cancelSelection()">
+          Cancelar
+        </button>
+        <button type="button" id="confirmBtn" class="btn-primary" onclick="confirmSelection()" disabled>
+          Confirmar
+        </button>
+      </div>
+      
+      <div id="logStreamingArea" style="display: none;">
+        <div class="log-container">
+          <h4 style="margin: 0 0 10px 0; color: #4285F4; font-size: 14px;">
+            Status da Execução
+          </h4>
+          <div id="logDisplay" class="log-display">
+            Iniciando processamento...
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let logPollingInterval = null;
+    let isProcessing = false;
+
+    document.addEventListener('DOMContentLoaded', function () {
+      try {
+        loadAccounts();
+
+        const accountSelect = document.getElementById('accountSelect');
+        const confirmBtn = document.getElementById('confirmBtn');
+
+        if (accountSelect && confirmBtn) {
+          accountSelect.addEventListener('change', function () {
+            confirmBtn.disabled = !this.value;
+          });
+        }
+      } catch (e) {
+        showMessage('Erro ao inicializar interface: ' + e, 'error');
+      }
+    });
+
+    function loadAccounts() {
+      google.script.run
+        .withSuccessHandler(function (result) {
+          try {
+            const loading = document.getElementById('loadingState');
+            const form = document.getElementById('mainForm');
+
+            if (loading) loading.style.display = 'none';
+            if (form) form.style.display = 'block';
+
+            if (!result || !Array.isArray(result.empresas) || result.empresas.length === 0) {
+              showMessage('Nenhuma empresa ativa configurada.', 'error');
+              return;
+            }
+
+            const empresas = result.empresas;
+            const select = document.getElementById('accountSelect');
+            if (!select) return;
+
+            // Limpa opções atuais e adiciona placeholder
+            select.innerHTML = '<option value="">-- Selecione a empresa --</option>';
+
+            empresas.forEach(function (empresa) {
+              const option = document.createElement('option');
+              option.value = empresa.empresa_id;      // vindo do getEmpresasParaSelecao
+              option.textContent = empresa.nome_empresa;
+              select.appendChild(option);
+            });
+
+            // Atualiza estatísticas
+            const totalAccountsSpan = document.getElementById('totalAccounts');
+            const activeAccountsSpan = document.getElementById('activeAccounts');
+            const statsArea = document.getElementById('statsArea');
+
+            if (totalAccountsSpan) totalAccountsSpan.textContent = empresas.length;
+            if (activeAccountsSpan) activeAccountsSpan.textContent = result.totalAliasAtivos || 0;
+            if (statsArea) statsArea.style.display = 'flex';
+
+            showMessage('Empresas carregadas com sucesso.', 'success');
+          } catch (e) {
+            showMessage('Erro ao montar lista de empresas: ' + e, 'error');
+          }
+        })
+        .withFailureHandler(function (error) {
+          const loading = document.getElementById('loadingState');
+          const form = document.getElementById('mainForm');
+
+          if (loading) loading.style.display = 'none';
+          if (form) form.style.display = 'block';
+
+          showMessage('Erro ao carregar empresas: ' + error, 'error');
+        })
+        .getAccountsForHtmlInterface();
+    }
+
+    // ✅ NOVO: Carregar aliases quando empresa for selecionada
+    document.addEventListener('DOMContentLoaded', function() {
+      const accountSelect = document.getElementById('accountSelect');
+      
+      if (accountSelect) {
+        accountSelect.addEventListener('change', function() {
+          const empresaId = this.value;
+          const aliasSelect = document.getElementById('aliasSelect');
+          
+          if (!aliasSelect) return;
+          
+          if (!empresaId) {
+            aliasSelect.innerHTML = '<option value="">-- Todos os aliases --</option>';
+            aliasSelect.disabled = true;
+            return;
+          }
+          
+          aliasSelect.innerHTML = '<option value="">-- Carregando... --</option>';
+          aliasSelect.disabled = true;
+          
+          google.script.run
+            .withSuccessHandler(function(aliases) {
+              aliasSelect.innerHTML = '<option value="">-- Todos os aliases --</option>';
+              
+              if (aliases && aliases.length > 0) {
+                aliases.forEach(function(aliasData) {
+                  const option = document.createElement('option');
+                  option.value = aliasData.alias;
+                  option.textContent = aliasData.alias + ' (' + aliasData.nome_empresa + ')';
+                  aliasSelect.appendChild(option);
+                });
+                aliasSelect.disabled = false;
+              }
+            })
+            .withFailureHandler(function(error) {
+              aliasSelect.innerHTML = '<option value="">-- Erro ao carregar --</option>';
+              showMessage('Erro ao carregar aliases: ' + error, 'error');
+            })
+            .getAliasesPorEmpresa(empresaId);
+        });
+      }
+    });
+
+    function confirmSelection() {
+      const select = document.getElementById('accountSelect');
+      const aliasSelect = document.getElementById('aliasSelect');
+      const confirmBtn = document.getElementById('confirmBtn');
+
+      if (!select) {
+        showMessage('Campo de seleção não encontrado.', 'error');
+        return;
+      }
+
+      const selectedId = select.value;
+      const selectedAlias = aliasSelect ? aliasSelect.value : '';
+
+      if (!selectedId) {
+        showMessage('Selecione uma empresa para continuar.', 'error');
+        return;
+      }
+
+      isProcessing = true;
+
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Processando...';
+      }
+
+      // Mensagem personalizada se alias específico foi selecionado
+      if (selectedAlias) {
+        showMessage('Atualizando alias: ' + selectedAlias + '...', 'warning');
+      } else {
+        showMessage('Atualizando todos os aliases da empresa...', 'warning');
+      }
+
+      const logArea = document.getElementById('logStreamingArea');
+      if (logArea) logArea.style.display = 'block';
+
+      startLogPolling();
+
+      google.script.run
+        .withSuccessHandler(function (result) {
+          stopLogPolling();
+          showMessage('Empresa atualizada com sucesso!', 'success');
+
+          if (confirmBtn) confirmBtn.textContent = 'Concluído';
+
+          setTimeout(function () {
+            google.script.host.close();
+          }, 2000);
+        })
+        .withFailureHandler(function (error) {
+          stopLogPolling();
+          showMessage('Erro ao executar atualização: ' + error, 'error');
+
+          if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Confirmar';
+          }
+
+          isProcessing = false;
+        })
+        .handleAccountSelection(selectedId, selectedAlias);
+    }
+
+    function startLogPolling() {
+      if (logPollingInterval) return;
+
+      logPollingInterval = setInterval(function () {
+        google.script.run
+          .withSuccessHandler(function (log) {
+            if (log && log.message) {
+              const logDisplay = document.getElementById('logDisplay');
+              if (logDisplay) {
+                logDisplay.textContent = log.message;
+                logDisplay.scrollTop = logDisplay.scrollHeight;
+              }
+            }
+          })
+          .withFailureHandler(function (error) {
+            // não quebra a execução se der erro aqui
+            console && console.error && console.error('Erro ao buscar log:', error);
+          })
+          .getLatestLogForStreaming();
+      }, 1000);
+    }
+
+    function stopLogPolling() {
+      if (logPollingInterval) {
+        clearInterval(logPollingInterval);
+        logPollingInterval = null;
+      }
+    }
+
+    function cancelSelection() {
+      if (isProcessing) stopLogPolling();
+      google.script.host.close();
+    }
+
+    function showMessage(message, type) {
+      const area = document.getElementById('messageArea');
+      if (!area) return;
+
+      area.innerHTML =
+        '<div class="message ' + type + '">' +
+        message +
+        '</div>';
+    }
+  </script>
+</body>
+</html>

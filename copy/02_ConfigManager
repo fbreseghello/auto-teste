@@ -1,0 +1,122 @@
+// ====================================================================
+// 02_CONFIG_MANAGER.GS
+// Gerenciamento da aba Configuracao
+// ====================================================================
+
+const ConfigManager = {
+  
+  NOME_ABA: 'Configuracao',
+  HEADERS: [
+    'Nome Empresa',
+    'Alias',
+    'User Token',
+    'User Secret Key',
+    'Aba Destino',
+    'Ultima Data',
+    'Status'
+  ],
+  
+  /**
+   * Lê configuração de empresas
+   */
+  lerConfiguracao: function() {
+    const sheet = this.obterAba();
+    const dados = sheet.getDataRange().getValues();
+    const resultado = [];
+    
+    for (let i = 1; i < dados.length; i++) {
+      const linha = dados[i];
+      
+      if (!linha[1]) continue;
+      
+      resultado.push({
+        nomeEmpresa: linha[0],
+        alias: linha[1],
+        token: linha[2],
+        secretKey: linha[3],
+        abaDestino: linha[4],
+        ultimaData: linha[5],
+        status: linha[6] || 'PENDENTE'
+      });
+    }
+    
+    return resultado;
+  },
+  
+  /**
+   * Atualiza status de uma empresa
+   */
+  atualizarStatus: function(alias, novoStatus, novaData = null) {
+    const sheet = this.obterAba();
+    const dados = sheet.getDataRange().getValues();
+    
+    for (let i = 1; i < dados.length; i++) {
+      if (dados[i][1] === alias) {
+        const linha = i + 1;
+        
+        sheet.getRange(linha, 7).setValue(novoStatus);
+        
+        if (novaData) {
+          sheet.getRange(linha, 6).setValue(novaData);
+        }
+        
+        Logger.registrar('INFO', dados[i][0], alias, 
+          `Status atualizado: ${novoStatus}`, 
+          { ultimaData: novaData });
+        
+        break;
+      }
+    }
+  },
+  
+  /**
+   * Obtém ou cria aba Configuracao
+   */
+  obterAba: function() {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName(this.NOME_ABA);
+    
+    if (!sheet) {
+      sheet = this.criarAba();
+    }
+    
+    return sheet;
+  },
+  
+  /**
+   * Cria aba Configuracao formatada
+   */
+  criarAba: function() {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.insertSheet(this.NOME_ABA, 0);
+    
+    const headerRange = sheet.getRange(1, 1, 1, this.HEADERS.length);
+    headerRange.setValues([this.HEADERS])
+      .setBackground('#4285f4')
+      .setFontColor('#FFFFFF')
+      .setFontWeight('bold')
+      .setHorizontalAlignment('center')
+      .setVerticalAlignment('middle');
+    
+    sheet.setColumnWidth(1, 150);
+    sheet.setColumnWidth(2, 120);
+    sheet.setColumnWidth(3, 200);
+    sheet.setColumnWidth(4, 200);
+    sheet.setColumnWidth(5, 150);
+    sheet.setColumnWidth(6, 120);
+    sheet.setColumnWidth(7, 120);
+    
+    sheet.setFrozenRows(1);
+    
+    const rule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['PENDENTE', 'EM_PROGRESSO', 'ATUALIZADO', 'PAUSADO'], true)
+      .setAllowInvalid(false)
+      .build();
+    
+    sheet.getRange('G2:G1000').setDataValidation(rule);
+    
+    Logger.registrar('INFO', '', '', 'Aba Configuracao criada', {});
+    
+    return sheet;
+  }
+};

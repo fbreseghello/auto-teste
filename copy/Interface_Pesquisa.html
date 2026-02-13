@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Pesquisa Específica</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f8f9fa;
+      color: #333;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .header h2 {
+      color: #1a73e8;
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .header .subtitle {
+      color: #666;
+      font-size: 14px;
+    }
+
+    .icon {
+      font-size: 20px;
+      margin-right: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+      color: #333;
+    }
+
+    .form-group select,
+    .form-group input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e1e5e9;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s ease;
+    }
+
+    .form-group select:focus,
+    .form-group input:focus {
+      outline: none;
+      border-color: #1a73e8;
+      box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.1);
+    }
+
+    .form-row {
+      display: flex;
+      gap: 15px;
+    }
+
+    .form-row .form-group {
+      flex: 1;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-top: 30px;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      min-width: 100px;
+    }
+
+    .btn-primary {
+      background: #1a73e8;
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #1557b0;
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: #f8f9fa;
+      color: #333;
+      border: 2px solid #e1e5e9;
+    }
+
+    .btn-secondary:hover {
+      background: #e8eaed;
+    }
+
+    .btn-danger {
+      background: #ea4335;
+      color: white;
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background: #d93025;
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .loading {
+      display: none;
+      justify-content: center;
+      align-items: center;
+      padding: 40px;
+    }
+
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #1a73e8;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 12px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .message {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+
+    .message.success {
+      background: #e8f5e8;
+      border: 1px solid #4caf50;
+      color: #2e7d32;
+    }
+
+    .message.error {
+      background: #fee;
+      border: 1px solid #fcc;
+      color: #c33;
+    }
+
+    .message.info {
+      background: #e3f2fd;
+      border: 1px solid #2196F3;
+      color: #1565c0;
+    }
+
+    .info-box {
+      background: #e8f4fd;
+      border: 1px solid #1a73e8;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    .info-box .icon {
+      color: #1a73e8;
+      font-size: 16px;
+      margin-right: 8px;
+    }
+
+    .info-box p {
+      margin: 0;
+      font-size: 14px;
+      color: #333;
+    }
+
+    .actions-bar {
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #e1e5e9;
+    }
+
+    .result-info {
+      color: #666;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>
+        <span class="icon">🔍</span>
+        Pesquisa Específica
+      </h2>
+      <div class="subtitle">Busque dados detalhados de um período específico para auditoria:</div>
+    </div>
+
+    <div id="messageArea"></div>
+
+    <div class="info-box">
+      <span class="icon">ℹ️</span>
+      Os dados serão exibidos na aba 'Pesquisa' e podem ser limpos após a análise.
+    </div>
+
+    <div id="loadingState" class="loading" style="display: none;">
+      <div class="spinner"></div>
+      Carregando empresas...
+    </div>
+
+    <div id="mainForm">
+      <div class="form-group">
+        <label for="empresaSelect">Empresa:</label>
+        <select id="empresaSelect">
+          <option value="">-- Selecione a empresa --</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="aliasSelect">Alias:</label>
+        <select id="aliasSelect" disabled>
+          <option value="">-- Primeiro selecione a empresa --</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="mesSelect">Mês:</label>
+          <select id="mesSelect">
+            <option value="">-- Selecione --</option>
+            <option value="01">Janeiro</option>
+            <option value="02">Fevereiro</option>
+            <option value="03">Março</option>
+            <option value="04">Abril</option>
+            <option value="05">Maio</option>
+            <option value="06">Junho</option>
+            <option value="07">Julho</option>
+            <option value="08">Agosto</option>
+            <option value="09">Setembro</option>
+            <option value="10">Outubro</option>
+            <option value="11">Novembro</option>
+            <option value="12">Dezembro</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="anoInput">Ano:</label>
+          <input type="number" id="anoInput" min="2020" max="2030" placeholder="2025">
+        </div>
+      </div>
+
+      <div class="buttons">
+        <button type="button" class="btn btn-secondary" onclick="fecharModal()">
+          Cancelar
+        </button>
+        <button type="button" id="pesquisarBtn" class="btn btn-primary" onclick="executarPesquisa()" disabled>
+          🔍 Pesquisar
+        </button>
+      </div>
+
+      <div class="actions-bar" style="display: none;" id="actionsBar">
+        <div class="result-info" id="resultInfo">
+          <!-- Informações do resultado aparecerão aqui -->
+        </div>
+        <button type="button" class="btn btn-danger" onclick="limparDados()">
+          🗑️ Limpar Dados
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      carregarEmpresas();
+      configurarEventos();
+      definirAnoAtual();
+    });
+
+    function configurarEventos() {
+      const empresaSelect = document.getElementById('empresaSelect');
+      const aliasSelect = document.getElementById('aliasSelect');
+      const mesSelect = document.getElementById('mesSelect');
+      const anoInput = document.getElementById('anoInput');
+      const pesquisarBtn = document.getElementById('pesquisarBtn');
+
+      empresaSelect.addEventListener('change', function() {
+        carregarAliases(this.value);
+        validarFormulario();
+      });
+
+      aliasSelect.addEventListener('change', validarFormulario);
+      mesSelect.addEventListener('change', validarFormulario);
+      anoInput.addEventListener('input', validarFormulario);
+    }
+
+    function definirAnoAtual() {
+      const anoAtual = new Date().getFullYear();
+      document.getElementById('anoInput').value = anoAtual;
+    }
+
+    function carregarEmpresas() {
+  const loadingState = document.getElementById('loadingState');
+  const mainForm = document.getElementById('mainForm');
+  
+  loadingState.style.display = 'flex';
+  mainForm.style.display = 'none';
+
+  google.script.run
+    .withSuccessHandler(function(empresas) {
+      loadingState.style.display = 'none';
+      mainForm.style.display = 'block';
+      
+      const select = document.getElementById('empresaSelect');
+      
+      // Limpar opções existentes
+      select.innerHTML = '<option value="">-- Selecione a empresa --</option>';
+      
+      empresas.forEach(empresa => {
+        const option = document.createElement('option');
+        option.value = empresa.empresa_id;
+        option.textContent = empresa.nome_empresa;
+        select.appendChild(option);
+      });
+      
+      // Adicionar listener para carregar aliases quando empresa for selecionada
+      select.addEventListener('change', function() {
+        carregarAliases(this.value);
+      });
+    })
+    .withFailureHandler(function(error) {
+      loadingState.style.display = 'none';
+      mainForm.style.display = 'block';
+      showMessage('Erro ao carregar empresas: ' + error, 'error');
+    })
+    .getEmpresasParaPesquisa();
+}
+
+    function carregarAliases(empresaId) {
+  const aliasSelect = document.getElementById('aliasSelect');
+  
+  if (!empresaId) {
+    aliasSelect.innerHTML = '<option value="">-- Primeiro selecione a empresa --</option>';
+    aliasSelect.disabled = true;
+    validarFormulario();
+    return;
+  }
+
+  aliasSelect.innerHTML = '<option value="">-- Carregando aliases... --</option>';
+  aliasSelect.disabled = true;
+
+  google.script.run
+    .withSuccessHandler(function(aliases) {
+      aliasSelect.innerHTML = '<option value="">-- Selecione o alias --</option>';
+      
+      if (aliases && aliases.length > 0) {
+        aliases.forEach(aliasData => {
+          const option = document.createElement('option');
+          option.value = aliasData.alias;
+          option.textContent = aliasData.alias;
+          aliasSelect.appendChild(option);
+        });
+        aliasSelect.disabled = false;
+      } else {
+        aliasSelect.innerHTML = '<option value="">-- Nenhum alias encontrado --</option>';
+      }
+      
+      validarFormulario();
+    })
+    .withFailureHandler(function(error) {
+      aliasSelect.innerHTML = '<option value="">-- Erro ao carregar --</option>';
+      aliasSelect.disabled = true;
+      showMessage('Erro ao carregar aliases: ' + error, 'error');
+      validarFormulario();
+    })
+    .getAliasesPorEmpresa(empresaId);
+}
+
+    function validarFormulario() {
+  const empresa = document.getElementById('empresaSelect').value;
+  const alias = document.getElementById('aliasSelect').value;
+  const mes = document.getElementById('mesSelect').value;
+  const ano = document.getElementById('anoInput').value;
+  const pesquisarBtn = document.getElementById('pesquisarBtn');
+  
+  const formularioValido = empresa && alias && mes && ano;
+  pesquisarBtn.disabled = !formularioValido;
+}
+
+    function executarPesquisa() {
+  const empresa = document.getElementById('empresaSelect').value;
+  const alias = document.getElementById('aliasSelect').value;
+  const mes = document.getElementById('mesSelect').value;
+  const ano = document.getElementById('anoInput').value;
+  
+  // Validação: usar alias se disponível, senão usar empresa
+  const aliasParaUsar = alias || empresa;
+  
+  if (!aliasParaUsar || !mes || !ano) {
+    showMessage('❌ Preencha todos os campos obrigatórios', 'error');
+    return;
+  }
+  
+  const mesAno = `${mes}/${ano}`;
+  
+  const pesquisarBtn = document.getElementById('pesquisarBtn');
+  pesquisarBtn.disabled = true;
+  pesquisarBtn.textContent = '🔍 Pesquisando...';
+
+  showMessage('⏳ Buscando dados na API Yampi. Isso pode levar alguns instantes...', 'info');
+
+  google.script.run
+    .withSuccessHandler(function(resultado) {
+      pesquisarBtn.disabled = false;
+      pesquisarBtn.textContent = '🔍 Pesquisar';
+      
+      if (resultado && resultado.registros !== undefined) {
+        showMessage(
+          `✅ Pesquisa concluída! ${resultado.registros} registros encontrados e carregados na aba 'Pesquisa'.`, 
+          'success'
+        );
+
+        // Mostrar barra de ações
+        const actionsBar = document.getElementById('actionsBar');
+        const resultInfo = document.getElementById('resultInfo');
+        
+        if (actionsBar && resultInfo) {
+          resultInfo.textContent = `${resultado.registros} registros • ${aliasParaUsar} • ${getMonthName(mes)}/${ano}`;
+          actionsBar.style.display = 'flex';
+        }
+      } else {
+        showMessage('✅ Pesquisa concluída!', 'success');
+      }
+
+      validarFormulario();
+    })
+    .withFailureHandler(function(error) {
+      pesquisarBtn.disabled = false;
+      pesquisarBtn.textContent = '🔍 Pesquisar';
+      showMessage('❌ Erro ao executar pesquisa: ' + error, 'error');
+      validarFormulario();
+    })
+    .processarPesquisaEspecifica(aliasParaUsar, mesAno);
+}
+
+    function limparDados() {
+      google.script.run
+        .withSuccessHandler(function() {
+          showMessage('✅ Dados da aba Pesquisa limpos com sucesso!', 'success');
+          
+          // Ocultar barra de ações
+          document.getElementById('actionsBar').style.display = 'none';
+        })
+        .withFailureHandler(function(error) {
+          showMessage('❌ Erro ao limpar dados: ' + error, 'error');
+        })
+        .limparAbaPesquisa();
+    }
+
+    function getMonthName(monthNumber) {
+      const months = {
+        '01': 'Janeiro', '02': 'Fevereiro', '03': 'Março', '04': 'Abril',
+        '05': 'Maio', '06': 'Junho', '07': 'Julho', '08': 'Agosto',
+        '09': 'Setembro', '10': 'Outubro', '11': 'Novembro', '12': 'Dezembro'
+      };
+      return months[monthNumber] || monthNumber;
+    }
+
+    function fecharModal() {
+      google.script.host.close();
+    }
+
+    function showMessage(message, type) {
+      const messageArea = document.getElementById('messageArea');
+      messageArea.innerHTML = `<div class="message ${type}">${message}</div>`;
+      
+      // Auto-remover mensagens de sucesso após 5 segundos
+      if (type === 'success') {
+        setTimeout(() => {
+          messageArea.innerHTML = '';
+        }, 5000);
+      }
+    }
+  </script>
+</body>
+</html>

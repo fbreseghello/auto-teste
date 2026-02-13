@@ -1,0 +1,15 @@
+[
+  {
+    "id": "empresa_filial",
+    "company": "Empresa",
+    "branch": "filial-slug",
+    "alias": "filial-slug",
+    "name": "Empresa - filial-slug",
+    "platform": "yampi",
+    "base_url": "https://api.dooki.com.br/v2",
+    "user_token_env": "YAMPI_EMPRESA_FILIAL_USER_TOKEN",
+    "user_secret_key_env": "YAMPI_EMPRESA_FILIAL_USER_SECRET_KEY",
+    "token_env": "YAMPI_EMPRESA_FILIAL_TOKEN",
+    "page_size": 100
+  }
+]

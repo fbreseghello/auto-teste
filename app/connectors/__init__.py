@@ -1,0 +1,1 @@
+# Conectores de APIs externas
