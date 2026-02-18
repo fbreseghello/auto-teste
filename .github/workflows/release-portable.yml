@@ -32,17 +32,18 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path dist -Force | Out-Null
-          $files = @(
-            "app",
-            "config",
-            "README.md",
-            "requirements.txt",
-            ".env.example",
-            "abrir_app.bat",
-            "atualizar_app.bat",
-            "executar_teste_aurha.bat"
-          )
-          Compress-Archive -Path $files -DestinationPath dist/auto-teste-portable.zip -Force
+          $packageRoot = "dist/auto-teste"
+          New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
+          Copy-Item -Recurse -Force app "$packageRoot/app"
+          Copy-Item -Recurse -Force config "$packageRoot/config"
+          if (!(Test-Path "$packageRoot/config/clients.json")) {
+            Copy-Item -Force "$packageRoot/config/clients.example.json" "$packageRoot/config/clients.json"
+          }
+          Copy-Item -Force README.md "$packageRoot/README.md"
+          Copy-Item -Force requirements.txt "$packageRoot/requirements.txt"
+          Copy-Item -Force .env.example "$packageRoot/.env.example"
+          Copy-Item -Force INICIAR_AUTO_TESTE.bat "$packageRoot/INICIAR_AUTO_TESTE.bat"
+          Compress-Archive -Path "$packageRoot/*" -DestinationPath dist/auto-teste-portable.zip -Force
 
       - name: Upload artifact
         if: github.event_name == 'workflow_dispatch'

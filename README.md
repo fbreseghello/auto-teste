@@ -20,42 +20,21 @@ Fluxo:
 
 ## Configuracao
 
-1. Copie o arquivo de exemplo:
+Fluxo plug and play para analistas (sem editar arquivos):
 
-```powershell
-Copy-Item config\clients.example.json config\clients.json
-```
+1. Baixe e extraia o `auto-teste-portable.zip` da release.
+2. (Opcional, recomendado) copie a pasta `clientes` para dentro da pasta do app.
+3. Execute `INICIAR_AUTO_TESTE.bat`.
+4. Se necessario, no app clique em `1) Credenciais` e salve.
+5. Clique em `Testar Conexao API`.
+6. Clique em `2) Exportar Mensal`.
 
-2. Ajuste o `config/clients.json` com suas unidades (empresa + filial/divisao).
-
-3. Defina as chaves de API no ambiente (ou em `.env` local):
-
-```env
-YAMPI_EMPRESA_FILIAL_USER_TOKEN=seu_user_token
-YAMPI_EMPRESA_FILIAL_USER_SECRET_KEY=sua_secret_key
-YAMPI_EMPRESA_FILIAL_TOKEN=seu_token
-AUTO_TESTE_GITHUB_REPO=fbreseghello/auto-teste
-```
-
-Opcao simples para teste sem comandos:
-
-1. Abra o arquivo `.env` e preencha as chaves.
-2. Execute `executar_teste_aurha.bat` com duplo clique.
-
-Opcao recomendada para analistas (sem terminal):
-
-1. Abra `.env` e preencha as chaves.
-2. Execute `abrir_app.bat` com duplo clique.
-3. Na tela:
-   - escolha `plataforma -> empresa -> alias`
-   - use `Testar Conexao API` para validar credenciais
-   - periodo ja vem preenchido automaticamente (1o dia do mes ate hoje)
-   - clique em `Sincronizar Pedidos`
-   - opcional: clique em `Reprocessar Mes` para apagar e baixar novamente o mes completo
-   - clique em `Exportar Mensal (Sheets)` para gerar o CSV final
-     (este botao agora reprocessa o periodo selecionado antes de exportar)
-     e interpreta datas como periodo mensal (inicio no dia 01 e fim no ultimo dia/hoje)
-   - clique em `Atualizar App` para buscar automaticamente a ultima release no GitHub
+Observacoes:
+- `config/clients.json` e `.env` sao criados automaticamente quando faltam.
+- se existir `clientes/clients.json` e `clientes/.env`, o app usa esses arquivos automaticamente.
+- o app tenta atualizar automaticamente ao iniciar.
+- o CSV mensal vai por padrao para `Downloads`.
+- ao finalizar exportacao, a pasta do arquivo e aberta automaticamente.
 
 Controles anti-erro na interface:
 - botoes ficam bloqueados durante execucao em background
@@ -153,8 +132,8 @@ Fluxo recomendado:
 
 1. Publicar release com tag (`0.2.0`, `0.2.1`, etc) no GitHub.
 2. O workflow `.github/workflows/release-portable.yml` gera o arquivo `auto-teste-portable.zip` na release.
-3. Usuarios baixam esse ZIP, extraem e executam `abrir_app.bat`.
-4. O `abrir_app.bat` tenta atualizar automaticamente antes de abrir a interface.
+3. Usuarios baixam esse ZIP, extraem e executam `INICIAR_AUTO_TESTE.bat`.
+4. O launcher tenta atualizar automaticamente antes de abrir a interface.
 
 ## Exemplo de cliente/unidade
 

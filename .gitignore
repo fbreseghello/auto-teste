@@ -5,3 +5,4 @@ __pycache__/
 config/clients.json
 data/
 exports/
+clientes/

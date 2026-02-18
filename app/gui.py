@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import threading
 import tkinter as tk
 from datetime import datetime, timedelta
@@ -7,7 +8,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from app import __version__
-from app.config import load_clients_config
+from app.config import load_clients_config, save_client_credentials
 from app.connectors.yampi import YampiClient
 from app.database import connect, init_db, upsert_client
 from app.services import (
@@ -72,10 +73,7 @@ class AppGUI:
 
         self.clients = load_clients_config()
         self.by_platform: dict[str, list] = {}
-        for client in self.clients.values():
-            self.by_platform.setdefault(client.platform, []).append(client)
-        for platform in self.by_platform:
-            self.by_platform[platform].sort(key=lambda c: (c.company.lower(), c.branch.lower(), c.id.lower()))
+        self._rebuild_client_index()
 
         self.platform_var = tk.StringVar()
         self.company_var = tk.StringVar()
@@ -117,26 +115,32 @@ class AppGUI:
         self.client_combo.bind("<<ComboboxSelected>>", lambda _e: self._on_client_change())
 
         ttk.Label(container, text="Data inicio").grid(row=3, column=0, sticky="w", pady=(14, 0))
-        ttk.Entry(container, textvariable=self.start_date_var).grid(row=3, column=1, sticky="ew", padx=(6, 18), pady=(14, 0))
+        self.start_date_entry = ttk.Entry(container, textvariable=self.start_date_var)
+        self.start_date_entry.grid(row=3, column=1, sticky="ew", padx=(6, 18), pady=(14, 0))
         ttk.Label(container, text="Data fim").grid(row=3, column=2, sticky="w", pady=(14, 0))
-        ttk.Entry(container, textvariable=self.end_date_var).grid(row=3, column=3, sticky="ew", padx=(6, 0), pady=(14, 0))
+        self.end_date_entry = ttk.Entry(container, textvariable=self.end_date_var)
+        self.end_date_entry.grid(row=3, column=3, sticky="ew", padx=(6, 0), pady=(14, 0))
+        self.start_date_entry.bind("<FocusOut>", lambda _e: self._refresh_monthly_output_default())
+        self.end_date_entry.bind("<FocusOut>", lambda _e: self._refresh_monthly_output_default())
 
         ttk.Label(container, text="Banco local").grid(row=4, column=0, sticky="w", pady=(14, 0))
         ttk.Entry(container, textvariable=self.db_path_var, state="readonly").grid(row=4, column=1, columnspan=2, sticky="ew", padx=(6, 10), pady=(14, 0))
         ttk.Button(container, text="Escolher", command=self._pick_db_path).grid(row=4, column=3, sticky="e", pady=(14, 0))
 
-        ttk.Label(container, text="CSV destino").grid(row=5, column=0, sticky="w", pady=(10, 0))
+        ttk.Label(container, text="CSV destino (Downloads)").grid(row=5, column=0, sticky="w", pady=(10, 0))
         ttk.Entry(container, textvariable=self.output_var, state="readonly").grid(row=5, column=1, columnspan=2, sticky="ew", padx=(6, 10), pady=(10, 0))
         ttk.Button(container, text="Salvar como", command=self._pick_output_path).grid(row=5, column=3, sticky="e", pady=(10, 0))
 
         actions = ttk.Frame(container)
         actions.grid(row=6, column=0, columnspan=4, sticky="ew", pady=(16, 6))
+        self.credentials_button = ttk.Button(actions, text="1) Credenciais", command=self._configure_credentials_clicked)
+        self.credentials_button.pack(side="left")
         self.test_button = ttk.Button(actions, text="Testar Conexao API", command=self._test_connection_clicked)
-        self.test_button.pack(side="left")
+        self.test_button.pack(side="left", padx=8)
         self.sync_button = ttk.Button(actions, text="Sincronizar Pedidos", command=self._sync_clicked)
         self.sync_button.pack(side="left", padx=8)
         self.export_monthly_button = ttk.Button(
-            actions, text="Exportar Mensal (Sheets)", command=self._export_monthly_clicked
+            actions, text="2) Exportar Mensal", command=self._export_monthly_clicked
         )
         self.export_monthly_button.pack(side="left")
         self.reprocess_button = ttk.Button(actions, text="Reprocessar Mes", command=self._reprocess_month_clicked)
@@ -161,6 +165,34 @@ class AppGUI:
         stamp = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         self.log_text.insert("end", f"[{stamp}] {message}\n")
         self.log_text.see("end")
+
+    def _rebuild_client_index(self) -> None:
+        self.by_platform = {}
+        for client in self.clients.values():
+            self.by_platform.setdefault(client.platform, []).append(client)
+        for platform in self.by_platform:
+            self.by_platform[platform].sort(key=lambda c: (c.company.lower(), c.branch.lower(), c.id.lower()))
+
+    def _reload_clients(self, preferred_client_id: str = "") -> None:
+        self.clients = load_clients_config()
+        self._rebuild_client_index()
+        self._load_platforms()
+        if not preferred_client_id:
+            return
+        target_client = self.clients.get(preferred_client_id)
+        if target_client:
+            if target_client.platform in self.by_platform:
+                self.platform_var.set(target_client.platform)
+                self._on_platform_change()
+            available_companies = set(self.company_combo["values"])
+            if target_client.company in available_companies:
+                self.company_var.set(target_client.company)
+                self._on_company_change()
+        for label, client in self._client_lookup.items():
+            if client.id == preferred_client_id:
+                self.client_var.set(label)
+                self._on_client_change()
+                break
 
     def _load_platforms(self) -> None:
         platforms = sorted(self.by_platform.keys())
@@ -195,8 +227,8 @@ class AppGUI:
         client = self._selected_client()
         if not client:
             return
-        self.output_var.set(f"exports/{client.id}_mensal.csv")
         self._apply_default_dates()
+        self.output_var.set(self._default_monthly_output(client))
 
     def _apply_default_dates(self) -> None:
         today = datetime.now()
@@ -206,6 +238,37 @@ class AppGUI:
 
     def _selected_client(self):
         return self._client_lookup.get(self.client_var.get().strip())
+
+    def _downloads_dir(self) -> Path:
+        downloads = Path.home() / "Downloads"
+        if downloads.exists():
+            return downloads
+        return Path.cwd()
+
+    def _period_suffix(self) -> str:
+        try:
+            start = _normalize_date(self.start_date_var.get())
+            if start:
+                return start[:7].replace("-", "_")
+        except ValueError:
+            pass
+        return datetime.now().strftime("%Y_%m")
+
+    def _default_monthly_output(self, client) -> str:
+        suffix = self._period_suffix()
+        return str(self._downloads_dir() / f"{client.id}_{suffix}_mensal.csv")
+
+    def _default_orders_output(self, client) -> str:
+        stamp = datetime.now().strftime("%Y_%m_%d")
+        return str(self._downloads_dir() / f"{client.id}_{stamp}_pedidos.csv")
+
+    def _refresh_monthly_output_default(self) -> None:
+        client = self._selected_client()
+        if not client:
+            return
+        current = self.output_var.get().strip()
+        if not current or current.lower().endswith("_mensal.csv"):
+            self.output_var.set(self._default_monthly_output(client))
 
     def _pick_db_path(self) -> None:
         chosen = filedialog.asksaveasfilename(
@@ -227,6 +290,12 @@ class AppGUI:
         if chosen:
             self.output_var.set(chosen)
 
+    def _open_output_folder(self, output_path: str) -> None:
+        try:
+            os.startfile(str(Path(output_path).resolve().parent))  # type: ignore[attr-defined]
+        except Exception:
+            pass
+
     def _run_background(self, fn) -> None:
         self._set_busy(True)
 
@@ -244,6 +313,7 @@ class AppGUI:
     def _set_busy(self, busy: bool) -> None:
         self._busy = busy
         state = "disabled" if busy else "normal"
+        self.credentials_button.configure(state=state)
         self.test_button.configure(state=state)
         self.sync_button.configure(state=state)
         self.export_monthly_button.configure(state=state)
@@ -254,6 +324,58 @@ class AppGUI:
         self.company_combo.configure(state="disabled" if busy else "readonly")
         self.client_combo.configure(state="disabled" if busy else "readonly")
 
+    def _configure_credentials_clicked(self) -> None:
+        client = self._selected_client()
+        if not client:
+            messagebox.showwarning("Selecao", "Escolha um alias/filial.")
+            return
+
+        dialog = tk.Toplevel(self.root)
+        dialog.title(f"Credenciais - {client.id}")
+        dialog.transient(self.root)
+        dialog.grab_set()
+        frame = ttk.Frame(dialog, padding=12)
+        frame.grid(row=0, column=0, sticky="nsew")
+
+        token_var = tk.StringVar(value=client.token or "")
+        user_token_var = tk.StringVar(value=client.user_token or "")
+        secret_var = tk.StringVar(value=client.user_secret_key or "")
+
+        row = 0
+        if client.token_env:
+            ttk.Label(frame, text=f"Token ({client.token_env})").grid(row=row, column=0, sticky="w")
+            ttk.Entry(frame, textvariable=token_var, width=62).grid(row=row + 1, column=0, sticky="ew", pady=(0, 8))
+            row += 2
+        if client.user_token_env:
+            ttk.Label(frame, text=f"User Token ({client.user_token_env})").grid(row=row, column=0, sticky="w")
+            ttk.Entry(frame, textvariable=user_token_var, width=62).grid(row=row + 1, column=0, sticky="ew", pady=(0, 8))
+            row += 2
+        if client.user_secret_key_env:
+            ttk.Label(frame, text=f"Secret Key ({client.user_secret_key_env})").grid(row=row, column=0, sticky="w")
+            ttk.Entry(frame, textvariable=secret_var, width=62, show="*").grid(row=row + 1, column=0, sticky="ew", pady=(0, 8))
+            row += 2
+
+        def save_clicked() -> None:
+            try:
+                save_client_credentials(
+                    client=client,
+                    token=token_var.get(),
+                    user_token=user_token_var.get(),
+                    user_secret_key=secret_var.get(),
+                )
+                self._reload_clients(preferred_client_id=client.id)
+                self._log(f"Credenciais salvas para {client.id}.")
+                messagebox.showinfo("Credenciais", "Credenciais salvas com sucesso no .env.")
+                dialog.destroy()
+            except Exception as exc:  # noqa: BLE001
+                messagebox.showerror("Erro", str(exc))
+
+        buttons = ttk.Frame(frame)
+        buttons.grid(row=row, column=0, sticky="e", pady=(4, 0))
+        ttk.Button(buttons, text="Cancelar", command=dialog.destroy).pack(side="left")
+        ttk.Button(buttons, text="Salvar", command=save_clicked).pack(side="left", padx=(8, 0))
+        frame.columnconfigure(0, weight=1)
+
     def _test_connection_clicked(self) -> None:
         client = self._selected_client()
         if not client:
@@ -263,7 +385,7 @@ class AppGUI:
             messagebox.showwarning("Plataforma", "Somente Yampi implementado neste MVP.")
             return
         if not _has_yampi_auth(client):
-            messagebox.showerror("Credencial", "Credenciais ausentes para este alias.")
+            messagebox.showerror("Credencial", "Credenciais ausentes. Clique em '1) Credenciais'.")
             return
 
         def task():
@@ -293,7 +415,7 @@ class AppGUI:
             messagebox.showwarning("Plataforma", "Somente Yampi implementado neste MVP.")
             return
         if not _has_yampi_auth(client):
-            messagebox.showerror("Credencial", "Credenciais ausentes para este alias.")
+            messagebox.showerror("Credencial", "Credenciais ausentes. Clique em '1) Credenciais'.")
             return
 
         try:
@@ -350,13 +472,11 @@ class AppGUI:
             messagebox.showwarning("Plataforma", "Somente Yampi implementado neste MVP.")
             return
         if not _has_yampi_auth(client):
-            messagebox.showerror("Credencial", "Credenciais ausentes para este alias.")
+            messagebox.showerror("Credencial", "Credenciais ausentes. Clique em '1) Credenciais'.")
             return
 
-        output = self.output_var.get().strip()
-        if not output:
-            messagebox.showwarning("Arquivo", "Informe o caminho do CSV.")
-            return
+        output = self.output_var.get().strip() or self._default_monthly_output(client)
+        self.output_var.set(output)
         if not output.lower().endswith(".csv"):
             messagebox.showwarning("Arquivo", "O arquivo de saida deve terminar com .csv.")
             return
@@ -413,7 +533,14 @@ class AppGUI:
             count = export_monthly_sheet_csv(conn, client.id, output, start_date=start_date, end_date=end_date)
             conn.close()
             self.root.after(0, lambda: self._log(f"CSV mensal gerado com {count} linha(s)."))
-            self.root.after(0, lambda: messagebox.showinfo("Sucesso", f"CSV mensal gerado: {count} linha(s)."))
+            self.root.after(
+                0,
+                lambda: messagebox.showinfo(
+                    "Sucesso",
+                    f"CSV mensal gerado: {count} linha(s).\n\nArquivo: {output}",
+                ),
+            )
+            self.root.after(0, lambda: self._open_output_folder(output))
 
         self._run_background(task)
 
@@ -426,7 +553,7 @@ class AppGUI:
             messagebox.showwarning("Plataforma", "Somente Yampi implementado neste MVP.")
             return
         if not _has_yampi_auth(client):
-            messagebox.showerror("Credencial", "Credenciais ausentes para este alias.")
+            messagebox.showerror("Credencial", "Credenciais ausentes. Clique em '1) Credenciais'.")
             return
 
         try:
@@ -511,8 +638,9 @@ class AppGUI:
             return
 
         output = self.output_var.get().strip()
-        if not output:
-            output = f"exports/{client.id}_orders.csv"
+        if not output or output.lower().endswith("_mensal.csv"):
+            output = self._default_orders_output(client)
+            self.output_var.set(output)
         if not output.lower().endswith(".csv"):
             messagebox.showwarning("Arquivo", "O arquivo de saida deve terminar com .csv.")
             return
@@ -526,7 +654,14 @@ class AppGUI:
             count = export_orders_csv(conn, client.id, output)
             conn.close()
             self.root.after(0, lambda: self._log(f"CSV detalhado gerado com {count} linha(s)."))
-            self.root.after(0, lambda: messagebox.showinfo("Sucesso", f"CSV detalhado gerado: {count} linha(s)."))
+            self.root.after(
+                0,
+                lambda: messagebox.showinfo(
+                    "Sucesso",
+                    f"CSV detalhado gerado: {count} linha(s).\n\nArquivo: {output}",
+                ),
+            )
+            self.root.after(0, lambda: self._open_output_folder(output))
 
         self._run_background(task)
 
