@@ -96,7 +96,7 @@ class AppGUI:
 
         title = ttk.Label(
             container,
-            text=f"Extracao Yampi (1:1 Google Sheets)  v{__version__}",
+            text=f"Extracao Yampi (1:1 Google Sheets)  {__version__}",
             font=("Segoe UI", 14, "bold"),
         )
         title.grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 14))
@@ -545,7 +545,7 @@ class AppGUI:
                 self.root.after(0, lambda: self._log("Sem atualizacao disponivel."))
                 return
 
-            self.root.after(0, lambda: self._log(f"Baixando e aplicando v{check.latest_version}..."))
+            self.root.after(0, lambda: self._log(f"Baixando e aplicando {check.latest_version}..."))
             result = apply_update_from_github(
                 current_version=__version__,
                 repo=check.repo,

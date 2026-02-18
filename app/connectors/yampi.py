@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
 
 ACTIVE_STATUS_IDS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13"]
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
 
 class YampiClient:
@@ -16,9 +18,13 @@ class YampiClient:
         user_token: str = "",
         user_secret_key: str = "",
         timeout: int = 30,
+        max_retries: int = 4,
+        retry_backoff_seconds: float = 1.5,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self.max_retries = max_retries
+        self.retry_backoff_seconds = retry_backoff_seconds
         self.session = requests.Session()
         headers = {"Accept": "application/json"}
         if token:
@@ -29,14 +35,47 @@ class YampiClient:
         self.session.headers.update(headers)
 
     def test_connection(self, alias: str) -> Tuple[bool, str]:
-        response = self.session.get(
-            f"{self.base_url}/{alias}/orders/filters",
-            timeout=self.timeout,
-        )
+        try:
+            response = self._request("GET", f"{self.base_url}/{alias}/orders/filters")
+        except requests.RequestException as exc:
+            return False, str(exc)
         if response.status_code == 200:
             return True, "Conexao com API OK"
         snippet = response.text[:300].replace("\n", " ").strip()
         return False, f"Erro {response.status_code}: {snippet}"
+
+    def _request(self, method: str, url: str, params: Optional[Dict[str, Any]] = None) -> requests.Response:
+        attempt = 0
+        while True:
+            try:
+                response = self.session.request(
+                    method=method,
+                    url=url,
+                    params=params,
+                    timeout=self.timeout,
+                )
+            except requests.RequestException as exc:
+                if attempt >= self.max_retries:
+                    raise
+                wait_seconds = self.retry_backoff_seconds * (2**attempt)
+                time.sleep(wait_seconds)
+                attempt += 1
+                continue
+
+            if response.status_code in RETRYABLE_STATUS_CODES and attempt < self.max_retries:
+                wait_seconds = self.retry_backoff_seconds * (2**attempt)
+                time.sleep(wait_seconds)
+                attempt += 1
+                continue
+
+            if response.status_code >= 400:
+                snippet = response.text[:250].replace("\n", " ").strip()
+                raise requests.HTTPError(
+                    f"{response.status_code} Client Error: {snippet} | url={response.url}",
+                    response=response,
+                )
+
+            return response
 
     def fetch_orders(
         self,
@@ -62,17 +101,7 @@ class YampiClient:
         for index, status_id in enumerate(ACTIVE_STATUS_IDS):
             params[f"status_id[{index}]"] = status_id
 
-        response = self.session.get(
-            f"{self.base_url}/{alias}/orders",
-            params=params,
-            timeout=self.timeout,
-        )
-        if response.status_code >= 400:
-            snippet = response.text[:400].replace("\n", " ").strip()
-            raise requests.HTTPError(
-                f"{response.status_code} Client Error: {snippet} | url={response.url}",
-                response=response,
-            )
+        response = self._request("GET", f"{self.base_url}/{alias}/orders", params=params)
         payload = response.json()
 
         next_scroll_id: Optional[str] = None

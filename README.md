@@ -151,7 +151,7 @@ python -m app.main menu
 
 Fluxo recomendado:
 
-1. Publicar release com tag (`v0.2.0`, `v0.2.1`, etc) no GitHub.
+1. Publicar release com tag (`0.2.0`, `0.2.1`, etc) no GitHub.
 2. O workflow `.github/workflows/release-portable.yml` gera o arquivo `auto-teste-portable.zip` na release.
 3. Usuarios baixam esse ZIP, extraem e executam `abrir_app.bat`.
 4. O `abrir_app.bat` tenta atualizar automaticamente antes de abrir a interface.
