@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.config import load_clients_config
 from app.database import connect, init_db, upsert_client
@@ -81,6 +81,27 @@ def _resolve_sync_window(start_date: str, end_date: str) -> tuple[str, str]:
     if start and end and start > end:
         raise ValueError("Data inicio nao pode ser maior que data fim.")
     return start, end
+
+
+def _expand_to_month_bounds(start_date: str, end_date: str) -> tuple[str, str]:
+    if not start_date or not end_date:
+        return start_date, end_date
+
+    start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+
+    start_month = start_dt.replace(day=1)
+    if end_dt.month == 12:
+        next_month = end_dt.replace(year=end_dt.year + 1, month=1, day=1)
+    else:
+        next_month = end_dt.replace(month=end_dt.month + 1, day=1)
+    end_month = next_month - timedelta(days=1)
+
+    today = datetime.now()
+    if end_month.year == today.year and end_month.month == today.month and end_month > today:
+        end_month = today
+
+    return start_month.strftime("%Y-%m-%d"), end_month.strftime("%Y-%m-%d")
 
 
 def _has_yampi_auth(client) -> bool:
@@ -171,6 +192,7 @@ def _run_interactive_menu(conn, clients) -> int:
                     except ValueError as exc:
                         print(f"Erro: {exc}")
                         continue
+                    start_date, end_date = _expand_to_month_bounds(start_date, end_date)
                     upsert_client(
                         conn,
                         client_id=client.id,
@@ -210,6 +232,7 @@ def _run_interactive_menu(conn, clients) -> int:
                 except ValueError as exc:
                     print(f"Erro: {exc}")
                     continue
+                start_date, end_date = _expand_to_month_bounds(start_date, end_date)
                 default_output = f"exports/{client.id}_mensal.csv"
                 output = input(f"Caminho do CSV [{default_output}]: ").strip() or default_output
                 count = export_monthly_sheet_csv(
@@ -269,6 +292,7 @@ def run() -> int:
                 f"Defina {_auth_hint(client)}."
             )
         start_date, end_date = _resolve_sync_window(args.start_date, args.end_date)
+        start_date, end_date = _expand_to_month_bounds(start_date, end_date)
         upsert_client(
             conn,
             client_id=client.id,
@@ -304,6 +328,7 @@ def run() -> int:
     if args.command == "export-monthly":
         _require_client(clients, args.client)
         start_date, end_date = _resolve_sync_window(args.start_date, args.end_date)
+        start_date, end_date = _expand_to_month_bounds(start_date, end_date)
         count = export_monthly_sheet_csv(
             conn, args.client, args.output, start_date=start_date, end_date=end_date
         )

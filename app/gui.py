@@ -37,6 +37,24 @@ def _resolve_window(start_date: str, end_date: str) -> tuple[str, str]:
     return start, end
 
 
+def _expand_to_month_bounds(start_date: str, end_date: str) -> tuple[str, str]:
+    start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+
+    start_month = start_dt.replace(day=1)
+    if end_dt.month == 12:
+        next_month = end_dt.replace(year=end_dt.year + 1, month=1, day=1)
+    else:
+        next_month = end_dt.replace(month=end_dt.month + 1, day=1)
+    end_month = next_month - timedelta(days=1)
+
+    today = datetime.now()
+    if end_month.year == today.year and end_month.month == today.month and end_month > today:
+        end_month = today
+
+    return start_month.strftime("%Y-%m-%d"), end_month.strftime("%Y-%m-%d")
+
+
 def _has_yampi_auth(client) -> bool:
     if client.token:
         return True
@@ -277,6 +295,7 @@ class AppGUI:
         if not start_date or not end_date:
             messagebox.showwarning("Periodo", "Informe data inicio e fim para exportar mensal com consistencia.")
             return
+        start_date, end_date = _expand_to_month_bounds(start_date, end_date)
 
         def task():
             db_path = self.db_path_var.get().strip() or "data/local.db"
@@ -338,6 +357,10 @@ class AppGUI:
         except ValueError as exc:
             messagebox.showerror("Data invalida", str(exc))
             return
+        if not start_date or not end_date:
+            messagebox.showwarning("Periodo", "Informe data inicio e fim para exportar mensal com consistencia.")
+            return
+        start_date, end_date = _expand_to_month_bounds(start_date, end_date)
 
         def task():
             db_path = self.db_path_var.get().strip() or "data/local.db"
@@ -358,7 +381,7 @@ class AppGUI:
             self.root.after(
                 0,
                 lambda: self._log(
-                    f"Reprocessando periodo {start_date or '(inicio)'} ate {end_date or '(fim)'} antes da exportacao..."
+                    f"Reprocessando periodo mensal {start_date} ate {end_date} antes da exportacao..."
                 ),
             )
             deleted, synced = reprocess_orders_for_period(

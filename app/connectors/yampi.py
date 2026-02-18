@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 
 
-ACTIVE_STATUS_IDS = ["1", "2", "3", "4", "5", "6", "7", "10", "11", "12", "13"]
+ACTIVE_STATUS_IDS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13"]
 
 
 class YampiClient:

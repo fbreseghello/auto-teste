@@ -53,6 +53,7 @@ Opcao recomendada para analistas (sem terminal):
    - opcional: clique em `Reprocessar Mes` para apagar e baixar novamente o mes completo
    - clique em `Exportar Mensal (Sheets)` para gerar o CSV final
      (este botao agora reprocessa o periodo selecionado antes de exportar)
+     e interpreta datas como periodo mensal (inicio no dia 01 e fim no ultimo dia/hoje)
 
 Controles anti-erro na interface:
 - botoes ficam bloqueados durante execucao em background
