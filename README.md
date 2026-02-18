@@ -33,6 +33,7 @@ Observacoes:
 - `config/clients.json` e `.env` sao criados automaticamente quando faltam.
 - se existir `clientes/clients.json` e `clientes/.env`, o app usa esses arquivos automaticamente.
 - o pacote inclui `clientes/.env.example` (modelo), nao um `.env` ativo.
+- no `.exe`, os arquivos sao lidos pela pasta do proprio executavel.
 - no pacote com `.exe`, nao precisa Python instalado.
 - o CSV mensal vai por padrao para `Downloads`.
 - ao finalizar exportacao, a pasta do arquivo e aberta automaticamente.

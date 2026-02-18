@@ -4,6 +4,7 @@ import json
 import os
 import re
 import shutil
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict
@@ -40,6 +41,19 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
 
 
+def _runtime_root() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parents[1]
+
+
+def _resolve_path(path: str) -> Path:
+    file_path = Path(path)
+    if file_path.is_absolute():
+        return file_path
+    return (_runtime_root() / file_path).resolve()
+
+
 def _clean_secret(value: str) -> str:
     text = value.strip()
     upper = text.upper()
@@ -54,9 +68,9 @@ def resolve_runtime_paths(
     env_path: str = DEFAULT_ENV_PATH,
     bundle_dir: str = DEFAULT_BUNDLE_DIR,
 ) -> tuple[Path, Path]:
-    config_file = Path(config_path)
-    env_file = Path(env_path)
-    bundle_root = Path(bundle_dir)
+    config_file = _resolve_path(config_path)
+    env_file = _resolve_path(env_path)
+    bundle_root = _resolve_path(bundle_dir)
     bundle_config = bundle_root / "clients.json"
     bundle_env = bundle_root / ".env"
     if bundle_config.exists():
@@ -74,7 +88,7 @@ def ensure_runtime_files(
     config_file, env_file = resolve_runtime_paths(config_path=config_path, env_path=env_path)
     config_file.parent.mkdir(parents=True, exist_ok=True)
     if not config_file.exists():
-        example_file = Path(template_path)
+        example_file = _resolve_path(template_path)
         if not example_file.exists():
             raise FileNotFoundError(
                 f"Arquivo de configuracao nao encontrado: {config_path}. "
@@ -89,7 +103,7 @@ def ensure_runtime_files(
 
 
 def set_env_values(values: dict[str, str], env_path: str = DEFAULT_ENV_PATH) -> None:
-    file_path = Path(env_path)
+    file_path = _resolve_path(env_path)
     file_path.parent.mkdir(parents=True, exist_ok=True)
     if not file_path.exists():
         file_path.write_text("", encoding="utf-8")
