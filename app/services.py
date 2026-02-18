@@ -61,6 +61,61 @@ def _to_float(value: Any) -> float:
         return 0.0
 
 
+def _extract_spreadsheet_field(order: Dict[str, Any], field: str) -> str:
+    spreadsheet = order.get("spreadsheet")
+    if not isinstance(spreadsheet, dict):
+        return ""
+    data = spreadsheet.get("data")
+    if not isinstance(data, list):
+        return ""
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        value = item.get(field)
+        if value is None:
+            continue
+        text = str(value).strip()
+        if text:
+            return text
+    return ""
+
+
+def _extract_transaction_field(order: Dict[str, Any], field: str) -> str:
+    transactions = order.get("transactions")
+    if not isinstance(transactions, dict):
+        return ""
+    data = transactions.get("data")
+    if not isinstance(data, list):
+        return ""
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        value = item.get(field)
+        if value is None:
+            continue
+        if isinstance(value, dict):
+            text = _extract_date(value).strip()
+        else:
+            text = str(value).strip()
+        if text:
+            return text
+    return ""
+
+
+def _extract_payment_date(order: Dict[str, Any]) -> str:
+    value = _extract_spreadsheet_field(order, "payment_date")
+    if value:
+        return value
+    return _extract_transaction_field(order, "captured_at")
+
+
+def _extract_cancelled_date(order: Dict[str, Any]) -> str:
+    value = _extract_spreadsheet_field(order, "cancelled_date")
+    if value:
+        return value
+    return _extract_transaction_field(order, "cancelled_at")
+
+
 def _iter_month_ranges(start_date: str, end_date: str) -> list[tuple[str, str]]:
     start = datetime.strptime(start_date, "%Y-%m-%d").date()
     end = datetime.strptime(end_date, "%Y-%m-%d").date()
@@ -98,6 +153,8 @@ def _normalize_orders(client_id: str, raw_orders: Iterable[Dict[str, Any]]) -> t
         value_shipment = _to_float(order.get("value_shipment"))
         value_discount = _to_float(order.get("value_discount"))
         value_tax = _to_float(order.get("value_tax"))
+        payment_date = _extract_payment_date(order)
+        cancelled_date = _extract_cancelled_date(order)
 
         if updated_at and (max_updated is None or str(updated_at) > max_updated):
             max_updated = str(updated_at)
@@ -116,6 +173,8 @@ def _normalize_orders(client_id: str, raw_orders: Iterable[Dict[str, Any]]) -> t
                 value_shipment,
                 value_discount,
                 value_tax,
+                payment_date,
+                cancelled_date,
                 str(_pick(customer, "name", "full_name") or ""),
                 str(_pick(customer, "email") or ""),
                 json.dumps(order, ensure_ascii=False),

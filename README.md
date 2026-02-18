@@ -96,6 +96,12 @@ Colunas do CSV mensal:
 - `Descontos concedidos` = `value_discount`
 - `Juros de Venda` = `value_tax`
 
+Filtros aplicados no agregado mensal:
+- pedidos criados no periodo selecionado
+- apenas IDs unicos (`client_id + order_id`)
+- `payment_date` preenchida
+- `cancelled_date` vazia
+
 Exportar pedidos para CSV:
 
 ```powershell

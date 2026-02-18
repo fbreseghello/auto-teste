@@ -31,6 +31,8 @@ CREATE TABLE IF NOT EXISTS yampi_orders (
     value_shipment REAL DEFAULT 0,
     value_discount REAL DEFAULT 0,
     value_tax REAL DEFAULT 0,
+    payment_date TEXT,
+    cancelled_date TEXT,
     customer_name TEXT,
     customer_email TEXT,
     raw_json TEXT NOT NULL,
@@ -67,6 +69,8 @@ def init_db(conn: sqlite3.Connection) -> None:
     _ensure_column(conn, "yampi_orders", "value_shipment", "REAL DEFAULT 0")
     _ensure_column(conn, "yampi_orders", "value_discount", "REAL DEFAULT 0")
     _ensure_column(conn, "yampi_orders", "value_tax", "REAL DEFAULT 0")
+    _ensure_column(conn, "yampi_orders", "payment_date", "TEXT")
+    _ensure_column(conn, "yampi_orders", "cancelled_date", "TEXT")
     conn.commit()
 
 
@@ -105,9 +109,9 @@ def upsert_orders(conn: sqlite3.Connection, rows: Iterable[tuple]) -> None:
         """
         INSERT INTO yampi_orders (
             client_id, order_id, status, status_name, total, created_at, created_date, updated_at,
-            value_products, value_shipment, value_discount, value_tax,
+            value_products, value_shipment, value_discount, value_tax, payment_date, cancelled_date,
             customer_name, customer_email, raw_json, extracted_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(client_id, order_id) DO UPDATE SET
             status = excluded.status,
             status_name = excluded.status_name,
@@ -119,6 +123,8 @@ def upsert_orders(conn: sqlite3.Connection, rows: Iterable[tuple]) -> None:
             value_shipment = excluded.value_shipment,
             value_discount = excluded.value_discount,
             value_tax = excluded.value_tax,
+            payment_date = excluded.payment_date,
+            cancelled_date = excluded.cancelled_date,
             customer_name = excluded.customer_name,
             customer_email = excluded.customer_email,
             raw_json = excluded.raw_json,
@@ -176,6 +182,8 @@ def fetch_monthly_for_export(
     if end_date:
         where_parts.append("y.created_date <= ?")
         params.append(end_date)
+    where_parts.append("TRIM(COALESCE(y.payment_date, '')) <> ''")
+    where_parts.append("TRIM(COALESCE(y.cancelled_date, '')) = ''")
 
     where_sql = " AND ".join(where_parts)
     return conn.execute(
