@@ -27,11 +27,12 @@ class YampiClient:
         self.retry_backoff_seconds = retry_backoff_seconds
         self.session = requests.Session()
         headers = {"Accept": "application/json"}
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
         if user_token and user_secret_key:
+            # Prioriza auth por User-Token/Secret-Key para evitar falhas com bearer antigo.
             headers["User-Token"] = user_token
             headers["User-Secret-Key"] = user_secret_key
+        elif token:
+            headers["Authorization"] = f"Bearer {token}"
         self.session.headers.update(headers)
 
     def test_connection(self, alias: str) -> Tuple[bool, str]:
