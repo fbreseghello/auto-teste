@@ -1,4 +1,4 @@
-name: release-portable
+name: release-windows
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  build-portable:
+  build-windows:
     runs-on: windows-latest
 
     steps:
@@ -23,37 +23,38 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt pyinstaller
 
       - name: Smoke test CLI
         run: python -m app.main --help
 
-      - name: Build portable zip
+      - name: Build Windows exe
+        run: pyinstaller --noconfirm --clean --windowed --name AutoTeste run_gui.py
+
+      - name: Build release zip
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path dist -Force | Out-Null
-          $packageRoot = "dist/auto-teste"
+          $packageRoot = "dist/auto-teste-windows"
           New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
-          Copy-Item -Recurse -Force app "$packageRoot/app"
+          Copy-Item -Recurse -Force "dist/AutoTeste/*" $packageRoot
           Copy-Item -Recurse -Force config "$packageRoot/config"
-          if (!(Test-Path "$packageRoot/config/clients.json")) {
-            Copy-Item -Force "$packageRoot/config/clients.example.json" "$packageRoot/config/clients.json"
-          }
-          Copy-Item -Force README.md "$packageRoot/README.md"
-          Copy-Item -Force requirements.txt "$packageRoot/requirements.txt"
-          Copy-Item -Force .env.example "$packageRoot/.env.example"
+          New-Item -ItemType Directory -Path "$packageRoot/clientes" -Force | Out-Null
+          Copy-Item -Force "config/clients.example.json" "$packageRoot/clientes/clients.json"
+          Copy-Item -Force ".env.example" "$packageRoot/clientes/.env"
           Copy-Item -Force INICIAR_AUTO_TESTE.bat "$packageRoot/INICIAR_AUTO_TESTE.bat"
-          Compress-Archive -Path "$packageRoot/*" -DestinationPath dist/auto-teste-portable.zip -Force
+          Copy-Item -Force README.md "$packageRoot/README.md"
+          Compress-Archive -Path "$packageRoot/*" -DestinationPath dist/auto-teste-windows.zip -Force
 
       - name: Upload artifact
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
-          name: auto-teste-portable
-          path: dist/auto-teste-portable.zip
+          name: auto-teste-windows
+          path: dist/auto-teste-windows.zip
 
       - name: Publish release asset
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/auto-teste-portable.zip
+          files: dist/auto-teste-windows.zip

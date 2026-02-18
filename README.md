@@ -13,7 +13,7 @@ Fluxo:
 3. Exportacao CSV
 4. Importacao no Google Sheets
 
-## Requisitos
+## Requisitos (Desenvolvimento)
 
 - Python 3.11+
 - `pip install -r requirements.txt`
@@ -22,7 +22,7 @@ Fluxo:
 
 Fluxo plug and play para analistas (sem editar arquivos):
 
-1. Baixe e extraia o `auto-teste-portable.zip` da release.
+1. Baixe e extraia o `auto-teste-windows.zip` da release.
 2. (Opcional, recomendado) copie a pasta `clientes` para dentro da pasta do app.
 3. Execute `INICIAR_AUTO_TESTE.bat`.
 4. Se necessario, no app clique em `1) Credenciais` e salve.
@@ -32,7 +32,7 @@ Fluxo plug and play para analistas (sem editar arquivos):
 Observacoes:
 - `config/clients.json` e `.env` sao criados automaticamente quando faltam.
 - se existir `clientes/clients.json` e `clientes/.env`, o app usa esses arquivos automaticamente.
-- o app tenta atualizar automaticamente ao iniciar.
+- no pacote com `.exe`, nao precisa Python instalado.
 - o CSV mensal vai por padrao para `Downloads`.
 - ao finalizar exportacao, a pasta do arquivo e aberta automaticamente.
 
@@ -131,9 +131,9 @@ python -m app.main menu
 Fluxo recomendado:
 
 1. Publicar release com tag (`0.2.0`, `0.2.1`, etc) no GitHub.
-2. O workflow `.github/workflows/release-portable.yml` gera o arquivo `auto-teste-portable.zip` na release.
+2. O workflow `.github/workflows/release-windows.yml` gera o arquivo `auto-teste-windows.zip` na release.
 3. Usuarios baixam esse ZIP, extraem e executam `INICIAR_AUTO_TESTE.bat`.
-4. O launcher tenta atualizar automaticamente antes de abrir a interface.
+4. O pacote ja inclui `AutoTeste.exe` e nao exige Python instalado na maquina do analista.
 
 ## Exemplo de cliente/unidade
 
@@ -156,5 +156,6 @@ Fluxo recomendado:
 ## Notas de seguranca
 
 - Nao versionar `config/clients.json` com segredos.
+- Nao versionar `clientes/.env` com segredos.
 - Credenciais ficam em variaveis de ambiente (`user_token_env`, `user_secret_key_env` e/ou `token_env`).
 - Mantenha o `.env` local fora de repositorio.
