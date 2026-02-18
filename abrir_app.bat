@@ -1,6 +1,4 @@
 @echo off
 cd /d "%~dp0"
-if not "%AUTO_TESTE_GITHUB_REPO%"=="" (
-  py -m app.main update-app
-)
+py -m app.main update-app >nul 2>&1
 py -m app.gui

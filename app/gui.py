@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import threading
 import tkinter as tk
 from datetime import datetime, timedelta
@@ -533,13 +532,8 @@ class AppGUI:
 
     def _update_app_clicked(self) -> None:
         def task():
-            repo = os.getenv("AUTO_TESTE_GITHUB_REPO", "").strip()
-            if not repo:
-                raise ValueError(
-                    "Defina AUTO_TESTE_GITHUB_REPO=dono/repositorio no .env para ativar atualizacao."
-                )
-            self.root.after(0, lambda: self._log(f"Verificando atualizacao em {repo}..."))
-            check = check_for_updates(current_version=__version__, repo=repo)
+            self.root.after(0, lambda: self._log("Verificando atualizacao no GitHub..."))
+            check = check_for_updates(current_version=__version__)
             if not check.has_update:
                 self.root.after(
                     0,
@@ -554,7 +548,7 @@ class AppGUI:
             self.root.after(0, lambda: self._log(f"Baixando e aplicando v{check.latest_version}..."))
             result = apply_update_from_github(
                 current_version=__version__,
-                repo=repo,
+                repo=check.repo,
                 project_dir=".",
             )
             self.root.after(0, lambda: self._log(result.message))

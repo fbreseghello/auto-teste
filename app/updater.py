@@ -11,6 +11,7 @@ import requests
 
 
 DEFAULT_GITHUB_REPO_ENV = "AUTO_TESTE_GITHUB_REPO"
+DEFAULT_GITHUB_REPO = "fbreseghello/auto-teste"
 GITHUB_API_BASE = "https://api.github.com"
 DEFAULT_EXCLUDE_TOP_LEVEL = {
     ".git",
@@ -45,13 +46,22 @@ class UpdateResult:
     files_copied: int = 0
 
 
-def resolve_repo(explicit_repo: str = "", env_var: str = DEFAULT_GITHUB_REPO_ENV) -> str:
-    repo = explicit_repo.strip() or os.getenv(env_var, "").strip()
+def _normalize_repo(value: str) -> str:
+    repo = value.strip()
     if not repo:
-        raise ValueError(
-            "Repositorio GitHub nao informado. "
-            f"Defina {env_var}=dono/repositorio no ambiente/.env ou use --repo."
-        )
+        return ""
+    if repo.startswith("http://") or repo.startswith("https://"):
+        repo = repo.split("github.com/", 1)[-1]
+    repo = repo.removesuffix(".git").strip("/")
+    return repo
+
+
+def resolve_repo(explicit_repo: str = "", env_var: str = DEFAULT_GITHUB_REPO_ENV) -> str:
+    repo = _normalize_repo(explicit_repo)
+    if not repo:
+        repo = _normalize_repo(os.getenv(env_var, ""))
+    if not repo:
+        repo = DEFAULT_GITHUB_REPO
     if "/" not in repo:
         raise ValueError(f"Repositorio invalido '{repo}'. Use o formato dono/repositorio.")
     return repo

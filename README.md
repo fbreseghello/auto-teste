@@ -34,7 +34,7 @@ Copy-Item config\clients.example.json config\clients.json
 YAMPI_EMPRESA_FILIAL_USER_TOKEN=seu_user_token
 YAMPI_EMPRESA_FILIAL_USER_SECRET_KEY=sua_secret_key
 YAMPI_EMPRESA_FILIAL_TOKEN=seu_token
-AUTO_TESTE_GITHUB_REPO=seu_usuario_ou_org/seu_repositorio
+AUTO_TESTE_GITHUB_REPO=fbreseghello/auto-teste
 ```
 
 Opcao simples para teste sem comandos:
@@ -78,6 +78,9 @@ Verificar/atualizar app pela ultima release do GitHub:
 python -m app.main update-app --check-only
 python -m app.main update-app
 ```
+
+O repositorio de update padrao ja vem configurado para `fbreseghello/auto-teste`.
+Use `AUTO_TESTE_GITHUB_REPO` apenas se quiser sobrescrever para outro repositorio.
 
 Sincronizar pedidos da Yampi para um cliente:
 
@@ -151,7 +154,7 @@ Fluxo recomendado:
 1. Publicar release com tag (`v0.2.0`, `v0.2.1`, etc) no GitHub.
 2. O workflow `.github/workflows/release-portable.yml` gera o arquivo `auto-teste-portable.zip` na release.
 3. Usuarios baixam esse ZIP, extraem e executam `abrir_app.bat`.
-4. Sempre que `AUTO_TESTE_GITHUB_REPO` estiver preenchido, o `abrir_app.bat` tenta atualizar automaticamente antes de abrir a interface.
+4. O `abrir_app.bat` tenta atualizar automaticamente antes de abrir a interface.
 
 ## Exemplo de cliente/unidade
 
