@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import os
 import threading
 import tkinter as tk
 from datetime import datetime, timedelta
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
+from app import __version__
 from app.config import load_clients_config
 from app.connectors.yampi import YampiClient
 from app.database import connect, init_db, upsert_client
@@ -15,6 +17,7 @@ from app.services import (
     reprocess_orders_for_period,
     sync_yampi_orders,
 )
+from app.updater import apply_update_from_github, check_for_updates
 
 
 def _normalize_date(date_str: str) -> str:
@@ -92,7 +95,11 @@ class AppGUI:
         container = ttk.Frame(self.root, padding=16)
         container.pack(fill="both", expand=True)
 
-        title = ttk.Label(container, text="Extracao Yampi (1:1 Google Sheets)", font=("Segoe UI", 14, "bold"))
+        title = ttk.Label(
+            container,
+            text=f"Extracao Yampi (1:1 Google Sheets)  v{__version__}",
+            font=("Segoe UI", 14, "bold"),
+        )
         title.grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 14))
 
         ttk.Label(container, text="Plataforma").grid(row=1, column=0, sticky="w")
@@ -137,6 +144,8 @@ class AppGUI:
         self.reprocess_button.pack(side="left", padx=8)
         self.export_orders_button = ttk.Button(actions, text="Exportar Pedidos", command=self._export_orders_clicked)
         self.export_orders_button.pack(side="left")
+        self.update_button = ttk.Button(actions, text="Atualizar App", command=self._update_app_clicked)
+        self.update_button.pack(side="left", padx=8)
 
         ttk.Label(container, text="Log").grid(row=7, column=0, sticky="w", pady=(10, 4))
         self.log_text = tk.Text(container, height=18, wrap="word")
@@ -241,6 +250,7 @@ class AppGUI:
         self.export_monthly_button.configure(state=state)
         self.reprocess_button.configure(state=state)
         self.export_orders_button.configure(state=state)
+        self.update_button.configure(state=state)
         self.platform_combo.configure(state="disabled" if busy else "readonly")
         self.company_combo.configure(state="disabled" if busy else "readonly")
         self.client_combo.configure(state="disabled" if busy else "readonly")
@@ -518,6 +528,43 @@ class AppGUI:
             conn.close()
             self.root.after(0, lambda: self._log(f"CSV detalhado gerado com {count} linha(s)."))
             self.root.after(0, lambda: messagebox.showinfo("Sucesso", f"CSV detalhado gerado: {count} linha(s)."))
+
+        self._run_background(task)
+
+    def _update_app_clicked(self) -> None:
+        def task():
+            repo = os.getenv("AUTO_TESTE_GITHUB_REPO", "").strip()
+            if not repo:
+                raise ValueError(
+                    "Defina AUTO_TESTE_GITHUB_REPO=dono/repositorio no .env para ativar atualizacao."
+                )
+            self.root.after(0, lambda: self._log(f"Verificando atualizacao em {repo}..."))
+            check = check_for_updates(current_version=__version__, repo=repo)
+            if not check.has_update:
+                self.root.after(
+                    0,
+                    lambda: messagebox.showinfo(
+                        "Atualizacao",
+                        f"Aplicativo atualizado.\nVersao atual: {check.current_version}",
+                    ),
+                )
+                self.root.after(0, lambda: self._log("Sem atualizacao disponivel."))
+                return
+
+            self.root.after(0, lambda: self._log(f"Baixando e aplicando v{check.latest_version}..."))
+            result = apply_update_from_github(
+                current_version=__version__,
+                repo=repo,
+                project_dir=".",
+            )
+            self.root.after(0, lambda: self._log(result.message))
+            self.root.after(
+                0,
+                lambda: messagebox.showinfo(
+                    "Atualizacao concluida",
+                    f"{result.message}\n\nFeche e abra o app novamente.",
+                ),
+            )
 
         self._run_background(task)
 

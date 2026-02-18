@@ -4,9 +4,11 @@ import argparse
 import sys
 from datetime import datetime, timedelta
 
+from app import __version__
 from app.config import load_clients_config
 from app.database import connect, init_db, upsert_client
 from app.services import export_monthly_sheet_csv, export_orders_csv, sync_yampi_orders
+from app.updater import apply_update_from_github, check_for_updates
 
 
 def parse_args() -> argparse.Namespace:
@@ -34,6 +36,15 @@ def parse_args() -> argparse.Namespace:
     export_monthly.add_argument("--output", required=True, help="Caminho do CSV de saida.")
     export_monthly.add_argument("--start-date", default="", help="Data inicio (dd/mm/aaaa ou aaaa-mm-dd).")
     export_monthly.add_argument("--end-date", default="", help="Data fim (dd/mm/aaaa ou aaaa-mm-dd).")
+
+    update_app = subparsers.add_parser("update-app", help="Atualiza o app pela ultima release do GitHub.")
+    update_app.add_argument("--repo", default="", help="Repositorio GitHub (dono/repositorio).")
+    update_app.add_argument("--force", action="store_true", help="Forca atualizacao mesmo sem nova versao.")
+    update_app.add_argument(
+        "--check-only",
+        action="store_true",
+        help="Somente verifica se existe versao nova, sem baixar arquivos.",
+    )
 
     return parser.parse_args()
 
@@ -246,6 +257,28 @@ def _run_interactive_menu(conn, clients) -> int:
 
 def run() -> int:
     args = parse_args()
+
+    if args.command == "update-app":
+        if args.check_only:
+            check = check_for_updates(current_version=__version__, repo=args.repo)
+            if check.has_update:
+                print(
+                    f"Atualizacao disponivel: {check.current_version} -> {check.latest_version} "
+                    f"({check.release_url})"
+                )
+            else:
+                print(f"Sem atualizacao. Versao atual: {check.current_version}.")
+            return 0
+
+        result = apply_update_from_github(
+            current_version=__version__,
+            repo=args.repo,
+            force=args.force,
+            project_dir=".",
+        )
+        print(result.message)
+        return 0
+
     conn = connect(args.db_path)
 
     if args.command == "init-db":

@@ -1,0 +1,58 @@
+name: release-portable
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-portable:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Smoke test CLI
+        run: python -m app.main --help
+
+      - name: Build portable zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          $files = @(
+            "app",
+            "config",
+            "README.md",
+            "requirements.txt",
+            ".env.example",
+            "abrir_app.bat",
+            "atualizar_app.bat",
+            "executar_teste_aurha.bat"
+          )
+          Compress-Archive -Path $files -DestinationPath dist/auto-teste-portable.zip -Force
+
+      - name: Upload artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: auto-teste-portable
+          path: dist/auto-teste-portable.zip
+
+      - name: Publish release asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/auto-teste-portable.zip

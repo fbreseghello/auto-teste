@@ -34,6 +34,7 @@ Copy-Item config\clients.example.json config\clients.json
 YAMPI_EMPRESA_FILIAL_USER_TOKEN=seu_user_token
 YAMPI_EMPRESA_FILIAL_USER_SECRET_KEY=sua_secret_key
 YAMPI_EMPRESA_FILIAL_TOKEN=seu_token
+AUTO_TESTE_GITHUB_REPO=seu_usuario_ou_org/seu_repositorio
 ```
 
 Opcao simples para teste sem comandos:
@@ -54,6 +55,7 @@ Opcao recomendada para analistas (sem terminal):
    - clique em `Exportar Mensal (Sheets)` para gerar o CSV final
      (este botao agora reprocessa o periodo selecionado antes de exportar)
      e interpreta datas como periodo mensal (inicio no dia 01 e fim no ultimo dia/hoje)
+   - clique em `Atualizar App` para buscar automaticamente a ultima release no GitHub
 
 Controles anti-erro na interface:
 - botoes ficam bloqueados durante execucao em background
@@ -68,6 +70,13 @@ Inicializar banco:
 
 ```powershell
 python -m app.main init-db
+```
+
+Verificar/atualizar app pela ultima release do GitHub:
+
+```powershell
+python -m app.main update-app --check-only
+python -m app.main update-app
 ```
 
 Sincronizar pedidos da Yampi para um cliente:
@@ -133,6 +142,16 @@ python -m app.main menu
 - `app/connectors/yampi.py`: cliente HTTP da Yampi
 - `app/services.py`: sincronizacao incremental e exportacao
 - `app/main.py`: interface de linha de comando
+- `app/updater.py`: atualizacao automatica via GitHub Releases
+
+## Distribuicao Para Usuarios
+
+Fluxo recomendado:
+
+1. Publicar release com tag (`v0.2.0`, `v0.2.1`, etc) no GitHub.
+2. O workflow `.github/workflows/release-portable.yml` gera o arquivo `auto-teste-portable.zip` na release.
+3. Usuarios baixam esse ZIP, extraem e executam `abrir_app.bat`.
+4. Sempre que `AUTO_TESTE_GITHUB_REPO` estiver preenchido, o `abrir_app.bat` tenta atualizar automaticamente antes de abrir a interface.
 
 ## Exemplo de cliente/unidade
 
