@@ -26,14 +26,23 @@ class YampiClient:
         self.max_retries = max_retries
         self.retry_backoff_seconds = retry_backoff_seconds
         self.session = requests.Session()
-        headers = {"Accept": "application/json"}
-        if user_token and user_secret_key:
-            # Prioriza auth por User-Token/Secret-Key para evitar falhas com bearer antigo.
-            headers["User-Token"] = user_token
-            headers["User-Secret-Key"] = user_secret_key
-        elif token:
-            headers["Authorization"] = f"Bearer {token}"
-        self.session.headers.update(headers)
+        self.session.headers.update({"Accept": "application/json"})
+        self._primary_auth_headers: Dict[str, str] = {}
+        self._fallback_auth_headers: Dict[str, str] = {}
+
+        has_user_auth = bool(user_token and user_secret_key)
+        has_bearer = bool(token)
+
+        if has_user_auth:
+            self._primary_auth_headers = {
+                "User-Token": user_token,
+                "User-Secret-Key": user_secret_key,
+            }
+            if has_bearer:
+                # Se user-token falhar com 401, tenta bearer automaticamente.
+                self._fallback_auth_headers = {"Authorization": f"Bearer {token}"}
+        elif has_bearer:
+            self._primary_auth_headers = {"Authorization": f"Bearer {token}"}
 
     def test_connection(self, alias: str) -> Tuple[bool, str]:
         try:
@@ -49,10 +58,13 @@ class YampiClient:
         attempt = 0
         while True:
             try:
+                headers = dict(self.session.headers)
+                headers.update(self._primary_auth_headers)
                 response = self.session.request(
                     method=method,
                     url=url,
                     params=params,
+                    headers=headers,
                     timeout=self.timeout,
                 )
             except requests.RequestException as exc:
@@ -68,6 +80,20 @@ class YampiClient:
                 time.sleep(wait_seconds)
                 attempt += 1
                 continue
+
+            if response.status_code == 401 and self._fallback_auth_headers:
+                fallback_headers = dict(self.session.headers)
+                fallback_headers.update(self._fallback_auth_headers)
+                fallback_response = self.session.request(
+                    method=method,
+                    url=url,
+                    params=params,
+                    headers=fallback_headers,
+                    timeout=self.timeout,
+                )
+                if fallback_response.status_code < 400:
+                    return fallback_response
+                response = fallback_response
 
             if response.status_code >= 400:
                 snippet = response.text[:250].replace("\n", " ").strip()

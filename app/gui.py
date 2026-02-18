@@ -8,7 +8,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from app import __version__
-from app.config import load_clients_config, save_client_credentials
+from app.config import load_clients_config, resolve_runtime_paths, save_client_credentials
 from app.connectors.yampi import YampiClient
 from app.database import connect, init_db, upsert_client
 from app.services import (
@@ -87,6 +87,7 @@ class AppGUI:
 
         self._build_ui()
         self._load_platforms()
+        self.root.after(0, self._log_runtime_sources)
 
     def _build_ui(self) -> None:
         container = ttk.Frame(self.root, padding=16)
@@ -165,6 +166,11 @@ class AppGUI:
         stamp = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         self.log_text.insert("end", f"[{stamp}] {message}\n")
         self.log_text.see("end")
+
+    def _log_runtime_sources(self) -> None:
+        config_path, env_path = resolve_runtime_paths()
+        self._log(f"Config em uso: {config_path}")
+        self._log(f"Credenciais em uso: {env_path}")
 
     def _rebuild_client_index(self) -> None:
         self.by_platform = {}

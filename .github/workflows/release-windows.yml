@@ -41,7 +41,7 @@ jobs:
           Copy-Item -Recurse -Force config "$packageRoot/config"
           New-Item -ItemType Directory -Path "$packageRoot/clientes" -Force | Out-Null
           Copy-Item -Force "config/clients.example.json" "$packageRoot/clientes/clients.json"
-          Copy-Item -Force ".env.example" "$packageRoot/clientes/.env"
+          Copy-Item -Force ".env.example" "$packageRoot/clientes/.env.example"
           Copy-Item -Force INICIAR_AUTO_TESTE.bat "$packageRoot/INICIAR_AUTO_TESTE.bat"
           Copy-Item -Force README.md "$packageRoot/README.md"
           Compress-Archive -Path "$packageRoot/*" -DestinationPath dist/auto-teste-windows.zip -Force

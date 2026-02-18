@@ -33,10 +33,20 @@ DEFAULT_CONFIG_PATH = "config/clients.json"
 DEFAULT_CONFIG_TEMPLATE_PATH = "config/clients.example.json"
 DEFAULT_ENV_PATH = ".env"
 DEFAULT_BUNDLE_DIR = "clientes"
+PLACEHOLDER_PREFIXES = ("COLE_AQUI", "SEU_", "YOUR_")
 
 
 def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")
+
+
+def _clean_secret(value: str) -> str:
+    text = value.strip()
+    upper = text.upper()
+    for prefix in PLACEHOLDER_PREFIXES:
+        if upper.startswith(prefix):
+            return ""
+    return text
 
 
 def resolve_runtime_paths(
@@ -140,9 +150,9 @@ def load_clients_config(config_path: str = DEFAULT_CONFIG_PATH) -> Dict[str, Cli
         token_env = item.get("token_env", "").strip()
         user_token_env = item.get("user_token_env", "").strip()
         user_secret_key_env = item.get("user_secret_key_env", "").strip()
-        token = os.getenv(token_env, "").strip() if token_env else ""
-        user_token = os.getenv(user_token_env, "").strip() if user_token_env else ""
-        user_secret_key = os.getenv(user_secret_key_env, "").strip() if user_secret_key_env else ""
+        token = _clean_secret(os.getenv(token_env, "")) if token_env else ""
+        user_token = _clean_secret(os.getenv(user_token_env, "")) if user_token_env else ""
+        user_secret_key = _clean_secret(os.getenv(user_secret_key_env, "")) if user_secret_key_env else ""
 
         client = ClientConfig(
             id=client_id,
