@@ -214,7 +214,6 @@ def _run_interactive_menu(conn, clients) -> int:
                     except ValueError as exc:
                         print(f"Erro: {exc}")
                         continue
-                    start_date, end_date = _expand_to_month_bounds(start_date, end_date)
                     upsert_client(
                         conn,
                         client_id=client.id,
@@ -364,7 +363,6 @@ def run() -> int:
                 f"Defina {_auth_hint(client)}."
             )
         start_date, end_date = _resolve_sync_window(args.start_date, args.end_date)
-        start_date, end_date = _expand_to_month_bounds(start_date, end_date)
         upsert_client(
             conn,
             client_id=client.id,

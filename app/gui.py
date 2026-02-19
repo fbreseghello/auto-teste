@@ -679,9 +679,8 @@ class AppGUI:
             messagebox.showerror("Data invalida", str(exc))
             return
         if not start_date or not end_date:
-            messagebox.showwarning("Periodo", "Informe data inicio e fim para exportar mensal com consistencia.")
+            messagebox.showwarning("Periodo", "Informe data inicio e fim para sincronizar pedidos.")
             return
-        start_date, end_date = _expand_to_month_bounds(start_date, end_date)
 
         def task():
             db_path = self.db_path_var.get().strip() or "data/local.db"
@@ -1175,6 +1174,18 @@ class AppGUI:
                         0,
                         lambda client_id=client.id, lines=count: self._log(
                             f"CSV SKUs de {client_id} gerado com {lines} linha(s)."
+                        ),
+                    )
+                except PermissionError:
+                    detail = (
+                        f"Arquivo em uso: {output}. "
+                        "Feche o CSV no Excel/planilha (ou escolha outro nome) e tente novamente."
+                    )
+                    errors.append((client.id, detail))
+                    self.root.after(
+                        0,
+                        lambda client_id=client.id, msg=detail: self._log(
+                            f"Erro na exportacao de SKUs de {client_id}: {msg}"
                         ),
                     )
                 except Exception as exc:  # noqa: BLE001

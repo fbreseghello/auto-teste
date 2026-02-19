@@ -159,6 +159,20 @@ def _iter_month_ranges(start_date: str, end_date: str) -> list[tuple[str, str]]:
     return ranges
 
 
+def _iter_day_ranges(start_date: str, end_date: str) -> list[tuple[str, str]]:
+    start = datetime.strptime(start_date, "%Y-%m-%d").date()
+    end = datetime.strptime(end_date, "%Y-%m-%d").date()
+    ranges: list[tuple[str, str]] = []
+
+    current = start
+    while current <= end:
+        day = current.isoformat()
+        ranges.append((day, day))
+        current = current + timedelta(days=1)
+
+    return ranges
+
+
 def _normalize_orders(client_id: str, raw_orders: Iterable[Dict[str, Any]]) -> tuple[list[tuple], Optional[str]]:
     rows: list[tuple] = []
     max_updated: Optional[str] = None
@@ -273,9 +287,9 @@ def sync_yampi_orders(
     max_seen_cursor = cursor
 
     if start_date and end_date:
-        # Evita erro de limite 10k da API processando em blocos mensais.
-        for month_start, month_end in _iter_month_ranges(start_date, end_date):
-            rows, _ = _sync_window(month_start, month_end, None)
+        # Evita erro de limite 10k da API processando em blocos diarios.
+        for day_start, day_end in _iter_day_ranges(start_date, end_date):
+            rows, _ = _sync_window(day_start, day_end, None)
             total_rows += rows
     else:
         rows, max_seen_cursor = _sync_window("", "", cursor)
@@ -348,6 +362,8 @@ def export_order_skus_csv(
     ]
 
     line_count = 0
+    matched_order = False
+    matched_order_with_items = False
     with path.open("w", newline="", encoding="utf-8") as csv_file:
         writer = csv.writer(csv_file, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL)
         writer.writerow(headers)
@@ -361,11 +377,16 @@ def export_order_skus_csv(
                 continue
 
             number = str(_pick(order, "number", "order_number", "id") or "").strip()
-            if normalized_order_number and number != normalized_order_number:
-                continue
+            if normalized_order_number:
+                order_id = str(row["order_id"] or "").strip()
+                if number != normalized_order_number and order_id != normalized_order_number:
+                    continue
+                matched_order = True
 
             created_at = _extract_datetime(_pick(order, "created_at", "date_created"))
             items = _extract_items(order)
+            if normalized_order_number and items:
+                matched_order_with_items = True
             for item in items:
                 writer.writerow(
                     [
@@ -378,6 +399,17 @@ def export_order_skus_csv(
                     ]
                 )
                 line_count += 1
+
+    if normalized_order_number and not matched_order:
+        raise ValueError(
+            f"Pedido {normalized_order_number} nao encontrado no banco local. "
+            "Sincronize os pedidos antes de exportar SKUs."
+        )
+    if normalized_order_number and matched_order and not matched_order_with_items:
+        raise ValueError(
+            f"Pedido {normalized_order_number} encontrado sem itens no banco local. "
+            "Reprocesse o periodo e tente novamente."
+        )
 
     return line_count
 
