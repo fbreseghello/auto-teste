@@ -68,8 +68,8 @@ class AppGUI:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title("Coletor de Dados - Analistas")
-        self.root.geometry("860x620")
-        self.root.minsize(820, 580)
+        self.root.geometry("980x640")
+        self.root.minsize(900, 580)
 
         self.clients = load_clients_config()
         self.by_platform: dict[str, list] = {}
@@ -78,7 +78,6 @@ class AppGUI:
         self.platform_var = tk.StringVar()
         self.company_var = tk.StringVar()
         self.select_all_var = tk.BooleanVar(value=False)
-        self.alias_filter_var = tk.StringVar()
         self.selection_info_var = tk.StringVar(value="Nenhum alias selecionado.")
         self.status_var = tk.StringVar(value="Pronto")
         self.start_date_var = tk.StringVar()
@@ -86,7 +85,6 @@ class AppGUI:
         self.db_path_var = tk.StringVar(value="data/local.db")
         self.output_var = tk.StringVar()
         self._company_clients: list = []
-        self._displayed_clients: list = []
         self._client_check_vars: dict[str, tk.BooleanVar] = {}
         self._client_checkbuttons: list[ttk.Checkbutton] = []
         self._client_canvas_window = None
@@ -94,7 +92,6 @@ class AppGUI:
 
         self._configure_styles()
         self._build_ui()
-        self.alias_filter_var.trace_add("write", lambda *_args: self._rebuild_client_checkbox_widgets())
         self._load_platforms()
         self.root.after(0, self._log_runtime_sources)
 
@@ -121,35 +118,36 @@ class AppGUI:
 
         select_frame = ttk.LabelFrame(container, text="Clientes", style="Section.TLabelframe")
         select_frame.grid(row=1, column=0, sticky="nsew")
-        ttk.Label(select_frame, text="Plataforma").grid(row=0, column=0, sticky="w")
-        self.platform_combo = ttk.Combobox(select_frame, textvariable=self.platform_var, state="readonly", width=22)
-        self.platform_combo.grid(row=0, column=1, sticky="ew", padx=(6, 14))
+        left_panel = ttk.Frame(select_frame)
+        left_panel.grid(row=0, column=0, sticky="nw", padx=(0, 12))
+        right_panel = ttk.Frame(select_frame)
+        right_panel.grid(row=0, column=1, sticky="nsew")
+
+        ttk.Label(left_panel, text="Plataforma").grid(row=0, column=0, sticky="w")
+        self.platform_combo = ttk.Combobox(left_panel, textvariable=self.platform_var, state="readonly", width=28)
+        self.platform_combo.grid(row=1, column=0, sticky="ew", pady=(2, 8))
         self.platform_combo.bind("<<ComboboxSelected>>", lambda _e: self._on_platform_change())
 
-        ttk.Label(select_frame, text="Empresa").grid(row=0, column=2, sticky="w")
-        self.company_combo = ttk.Combobox(select_frame, textvariable=self.company_var, state="readonly", width=26)
-        self.company_combo.grid(row=0, column=3, sticky="ew", padx=(6, 0))
+        ttk.Label(left_panel, text="Empresa").grid(row=2, column=0, sticky="w")
+        self.company_combo = ttk.Combobox(left_panel, textvariable=self.company_var, state="readonly", width=28)
+        self.company_combo.grid(row=3, column=0, sticky="ew", pady=(2, 8))
         self.company_combo.bind("<<ComboboxSelected>>", lambda _e: self._on_company_change())
 
-        ttk.Label(select_frame, text="Filtro").grid(row=1, column=0, sticky="w", pady=(8, 0))
-        self.alias_filter_entry = ttk.Entry(select_frame, textvariable=self.alias_filter_var)
-        self.alias_filter_entry.grid(row=1, column=1, sticky="ew", padx=(6, 8), pady=(8, 0))
-        self.clear_filter_button = ttk.Button(select_frame, text="X", width=3, command=self._clear_alias_filter)
-        self.clear_filter_button.grid(row=1, column=2, sticky="w", pady=(8, 0))
+        ttk.Label(left_panel, textvariable=self.selection_info_var, style="Muted.TLabel").grid(
+            row=4, column=0, sticky="w", pady=(2, 0)
+        )
 
+        ttk.Label(right_panel, text="Alias/Filiais").grid(row=0, column=0, sticky="w")
         self.select_all_check = ttk.Checkbutton(
-            select_frame,
+            right_panel,
             text="Selecionar todos",
             variable=self.select_all_var,
             command=self._toggle_select_all_clients,
         )
-        self.select_all_check.grid(row=1, column=3, sticky="e", pady=(8, 0))
-        ttk.Label(select_frame, textvariable=self.selection_info_var, style="Muted.TLabel").grid(
-            row=2, column=0, columnspan=4, sticky="w", pady=(6, 0)
-        )
+        self.select_all_check.grid(row=0, column=1, sticky="e")
 
-        alias_frame = ttk.Frame(select_frame)
-        alias_frame.grid(row=3, column=0, columnspan=4, sticky="nsew", pady=(6, 0))
+        alias_frame = ttk.Frame(right_panel)
+        alias_frame.grid(row=1, column=0, columnspan=2, sticky="nsew", pady=(6, 0))
         self.client_canvas = tk.Canvas(alias_frame, height=130, highlightthickness=0)
         self.client_canvas.grid(row=0, column=0, sticky="ew")
         self.client_scrollbar = ttk.Scrollbar(alias_frame, orient="vertical", command=self.client_canvas.yview)
@@ -160,9 +158,11 @@ class AppGUI:
         self.client_checks_frame.bind("<Configure>", self._on_client_checks_configure)
         self.client_canvas.bind("<Configure>", self._on_client_canvas_configure)
 
+        left_panel.columnconfigure(0, weight=1)
+        right_panel.columnconfigure(0, weight=1)
+        right_panel.rowconfigure(1, weight=1)
         select_frame.columnconfigure(1, weight=1)
-        select_frame.columnconfigure(3, weight=1)
-        select_frame.rowconfigure(3, weight=1)
+        select_frame.rowconfigure(0, weight=1)
         alias_frame.columnconfigure(0, weight=1)
 
         config_frame = ttk.LabelFrame(container, text="Periodo e Arquivos", style="Section.TLabelframe")
@@ -295,8 +295,6 @@ class AppGUI:
         platform = self.platform_var.get().strip()
         company = self.company_var.get().strip()
         clients = [c for c in self.by_platform.get(platform, []) if c.company == company]
-        if self.alias_filter_var.get().strip():
-            self.alias_filter_var.set("")
         self._render_client_checkboxes(clients, preferred_client_id=preferred_client_id)
 
     def _on_client_checks_configure(self, _event=None) -> None:
@@ -305,9 +303,6 @@ class AppGUI:
     def _on_client_canvas_configure(self, event) -> None:
         if self._client_canvas_window is not None:
             self.client_canvas.itemconfigure(self._client_canvas_window, width=event.width)
-
-    def _clear_alias_filter(self) -> None:
-        self.alias_filter_var.set("")
 
     def _render_client_checkboxes(self, clients: list, preferred_client_id: str = "") -> None:
         previous_selection = {client.id for client in self._selected_clients()}
@@ -332,26 +327,16 @@ class AppGUI:
                 next_vars[client.id] = tk.BooleanVar(value=checked)
         self._client_check_vars = next_vars
 
-        self._rebuild_client_checkbox_widgets()
-        self._on_client_selection_changed()
-
-    def _rebuild_client_checkbox_widgets(self) -> None:
         for child in self.client_checks_frame.winfo_children():
             child.destroy()
         self._client_checkbuttons = []
-        self._displayed_clients = []
 
-        filter_text = self.alias_filter_var.get().strip().lower()
         for client in self._company_clients:
-            haystack = f"{client.branch} {client.alias} {client.id}".lower()
-            if filter_text and filter_text not in haystack:
-                continue
-            self._displayed_clients.append(client)
             var = self._client_check_vars.get(client.id)
             if var is None:
                 var = tk.BooleanVar(value=False)
                 self._client_check_vars[client.id] = var
-            label = f"{client.branch} [alias={client.alias}] ({client.id})"
+            label = (client.alias or "").strip() or client.branch
             check = ttk.Checkbutton(
                 self.client_checks_frame,
                 text=label,
@@ -361,36 +346,27 @@ class AppGUI:
             check.pack(anchor="w", fill="x")
             self._client_checkbuttons.append(check)
 
-        if not self._displayed_clients:
-            text = "Nenhum alias encontrado para o filtro." if filter_text else "Nenhum alias disponivel."
-            ttk.Label(self.client_checks_frame, text=text, style="Muted.TLabel").pack(anchor="w")
+        if not self._company_clients:
+            ttk.Label(self.client_checks_frame, text="Nenhum alias disponivel.", style="Muted.TLabel").pack(anchor="w")
 
         if self._busy:
             for check in self._client_checkbuttons:
                 check.configure(state="disabled")
         self._on_client_checks_configure()
-        self._update_selection_summary()
+        self._on_client_selection_changed()
 
     def _update_selection_summary(self) -> None:
         selected_total = len(self._selected_clients())
         total = len(self._company_clients)
-        visible = len(self._displayed_clients)
-        filter_text = self.alias_filter_var.get().strip()
 
         if total == 0:
             self.selection_info_var.set("Nenhum alias para a empresa selecionada.")
-            return
-        if filter_text:
-            self.selection_info_var.set(
-                f"{selected_total} de {total} selecionados ({visible} visiveis com filtro)."
-            )
             return
         self.selection_info_var.set(f"{selected_total} de {total} alias selecionados.")
 
     def _toggle_select_all_clients(self) -> None:
         target = self.select_all_var.get()
-        scope = self._displayed_clients if self.alias_filter_var.get().strip() else self._company_clients
-        for client in scope:
+        for client in self._company_clients:
             var = self._client_check_vars.get(client.id)
             if var is None:
                 continue
@@ -399,10 +375,9 @@ class AppGUI:
 
     def _on_client_selection_changed(self) -> None:
         client = self._selected_client()
-        scope = self._displayed_clients if self.alias_filter_var.get().strip() else self._company_clients
-        all_selected = bool(scope) and all(
+        all_selected = bool(self._company_clients) and all(
             bool(self._client_check_vars.get(current.id) and self._client_check_vars[current.id].get())
-            for current in scope
+            for current in self._company_clients
         )
         self.select_all_var.set(all_selected)
         self._update_selection_summary()
@@ -565,8 +540,6 @@ class AppGUI:
         self.reprocess_button.configure(state=state)
         self.export_orders_button.configure(state=state)
         self.update_button.configure(state=state)
-        self.alias_filter_entry.configure(state=state)
-        self.clear_filter_button.configure(state=state)
         self.start_date_entry.configure(state=state)
         self.end_date_entry.configure(state=state)
         self.current_month_button.configure(state=state)
