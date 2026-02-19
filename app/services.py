@@ -55,18 +55,6 @@ def _extract_status_name(status: Any) -> str:
     return str(status)
 
 
-def _extract_datetime(value: Any) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value
-    if isinstance(value, dict):
-        date_value = value.get("date")
-        if isinstance(date_value, str):
-            return date_value
-    return str(value)
-
-
 def _to_float(value: Any) -> float:
     try:
         return float(value)
@@ -383,7 +371,7 @@ def export_order_skus_csv(
                     continue
                 matched_order = True
 
-            created_at = _extract_datetime(_pick(order, "created_at", "date_created"))
+            created_at = _extract_date(_pick(order, "created_at", "date_created"))
             items = _extract_items(order)
             if normalized_order_number and items:
                 matched_order_with_items = True
