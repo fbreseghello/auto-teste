@@ -100,35 +100,27 @@ class AppGUI:
 
     def _configure_styles(self) -> None:
         style = ttk.Style(self.root)
-        if "clam" in style.theme_names():
-            style.theme_use("clam")
-        style.configure("Title.TLabel", font=("Segoe UI", 15, "bold"))
-        style.configure("Subtitle.TLabel", font=("Segoe UI", 9))
+        style.configure("Title.TLabel", font=("Segoe UI", 13, "bold"))
         style.configure("Muted.TLabel", font=("Segoe UI", 9))
         style.configure("Section.TLabelframe.Label", font=("Segoe UI", 10, "bold"))
-        style.configure("Status.TLabel", font=("Segoe UI", 9, "bold"))
+        style.configure("Status.TLabel", font=("Segoe UI", 9))
 
     def _build_ui(self) -> None:
-        container = ttk.Frame(self.root, padding=14)
+        container = ttk.Frame(self.root, padding=12)
         container.pack(fill="both", expand=True)
 
         header = ttk.Frame(container)
-        header.grid(row=0, column=0, sticky="ew")
+        header.grid(row=0, column=0, sticky="ew", pady=(0, 8))
         ttk.Label(
             header,
-            text=f"Extracao Yampi para Analistas  {__version__}",
+            text=f"Extracao Yampi  {__version__}",
             style="Title.TLabel",
         ).grid(row=0, column=0, sticky="w")
-        ttk.Label(
-            header,
-            text="Selecione clientes, periodo e acao. Operacoes rodam para todos os aliases marcados.",
-            style="Subtitle.TLabel",
-        ).grid(row=1, column=0, sticky="w", pady=(2, 0))
-        ttk.Label(header, textvariable=self.status_var, style="Status.TLabel").grid(row=0, column=1, rowspan=2, sticky="e")
+        ttk.Label(header, textvariable=self.status_var, style="Status.TLabel").grid(row=0, column=1, sticky="e")
         header.columnconfigure(0, weight=1)
 
-        select_frame = ttk.LabelFrame(container, text="1) Clientes", style="Section.TLabelframe")
-        select_frame.grid(row=1, column=0, sticky="nsew", pady=(10, 8))
+        select_frame = ttk.LabelFrame(container, text="Clientes", style="Section.TLabelframe")
+        select_frame.grid(row=1, column=0, sticky="nsew")
         ttk.Label(select_frame, text="Plataforma").grid(row=0, column=0, sticky="w")
         self.platform_combo = ttk.Combobox(select_frame, textvariable=self.platform_var, state="readonly", width=22)
         self.platform_combo.grid(row=0, column=1, sticky="ew", padx=(6, 14))
@@ -139,11 +131,11 @@ class AppGUI:
         self.company_combo.grid(row=0, column=3, sticky="ew", padx=(6, 0))
         self.company_combo.bind("<<ComboboxSelected>>", lambda _e: self._on_company_change())
 
-        ttk.Label(select_frame, text="Filtrar alias").grid(row=1, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(select_frame, text="Filtro").grid(row=1, column=0, sticky="w", pady=(8, 0))
         self.alias_filter_entry = ttk.Entry(select_frame, textvariable=self.alias_filter_var)
-        self.alias_filter_entry.grid(row=1, column=1, columnspan=2, sticky="ew", padx=(6, 8), pady=(8, 0))
-        self.clear_filter_button = ttk.Button(select_frame, text="Limpar", command=self._clear_alias_filter)
-        self.clear_filter_button.grid(row=1, column=3, sticky="e", pady=(8, 0))
+        self.alias_filter_entry.grid(row=1, column=1, sticky="ew", padx=(6, 8), pady=(8, 0))
+        self.clear_filter_button = ttk.Button(select_frame, text="X", width=3, command=self._clear_alias_filter)
+        self.clear_filter_button.grid(row=1, column=2, sticky="w", pady=(8, 0))
 
         self.select_all_check = ttk.Checkbutton(
             select_frame,
@@ -151,14 +143,14 @@ class AppGUI:
             variable=self.select_all_var,
             command=self._toggle_select_all_clients,
         )
-        self.select_all_check.grid(row=2, column=0, sticky="w", pady=(8, 0))
+        self.select_all_check.grid(row=1, column=3, sticky="e", pady=(8, 0))
         ttk.Label(select_frame, textvariable=self.selection_info_var, style="Muted.TLabel").grid(
-            row=2, column=1, columnspan=3, sticky="w", padx=(6, 0), pady=(8, 0)
+            row=2, column=0, columnspan=4, sticky="w", pady=(6, 0)
         )
 
         alias_frame = ttk.Frame(select_frame)
         alias_frame.grid(row=3, column=0, columnspan=4, sticky="nsew", pady=(6, 0))
-        self.client_canvas = tk.Canvas(alias_frame, height=120, highlightthickness=0)
+        self.client_canvas = tk.Canvas(alias_frame, height=130, highlightthickness=0)
         self.client_canvas.grid(row=0, column=0, sticky="ew")
         self.client_scrollbar = ttk.Scrollbar(alias_frame, orient="vertical", command=self.client_canvas.yview)
         self.client_scrollbar.grid(row=0, column=1, sticky="ns")
@@ -169,78 +161,72 @@ class AppGUI:
         self.client_canvas.bind("<Configure>", self._on_client_canvas_configure)
 
         select_frame.columnconfigure(1, weight=1)
-        select_frame.columnconfigure(2, weight=1)
         select_frame.columnconfigure(3, weight=1)
         select_frame.rowconfigure(3, weight=1)
         alias_frame.columnconfigure(0, weight=1)
 
-        period_frame = ttk.LabelFrame(container, text="2) Periodo e Arquivos", style="Section.TLabelframe")
-        period_frame.grid(row=2, column=0, sticky="ew", pady=(0, 8))
-        ttk.Label(period_frame, text="Data inicio").grid(row=0, column=0, sticky="w")
-        self.start_date_entry = ttk.Entry(period_frame, textvariable=self.start_date_var)
-        self.start_date_entry.grid(row=0, column=1, sticky="ew", padx=(6, 14))
-        ttk.Label(period_frame, text="Data fim").grid(row=0, column=2, sticky="w")
-        self.end_date_entry = ttk.Entry(period_frame, textvariable=self.end_date_var)
-        self.end_date_entry.grid(row=0, column=3, sticky="ew", padx=(6, 8))
-        self.current_month_button = ttk.Button(period_frame, text="Mes atual", command=self._set_current_month_dates)
+        config_frame = ttk.LabelFrame(container, text="Periodo e Arquivos", style="Section.TLabelframe")
+        config_frame.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        ttk.Label(config_frame, text="Inicio").grid(row=0, column=0, sticky="w")
+        self.start_date_entry = ttk.Entry(config_frame, textvariable=self.start_date_var, width=14)
+        self.start_date_entry.grid(row=0, column=1, sticky="w", padx=(6, 12))
+        ttk.Label(config_frame, text="Fim").grid(row=0, column=2, sticky="w")
+        self.end_date_entry = ttk.Entry(config_frame, textvariable=self.end_date_var, width=14)
+        self.end_date_entry.grid(row=0, column=3, sticky="w", padx=(6, 12))
+        self.current_month_button = ttk.Button(config_frame, text="Mes atual", command=self._set_current_month_dates)
         self.current_month_button.grid(row=0, column=4, sticky="e")
-        self.last_30_days_button = ttk.Button(period_frame, text="Ultimos 30 dias", command=self._set_last_30_days_dates)
+        self.last_30_days_button = ttk.Button(config_frame, text="Ultimos 30 dias", command=self._set_last_30_days_dates)
         self.last_30_days_button.grid(row=0, column=5, sticky="e", padx=(8, 0))
+
+        ttk.Label(config_frame, text="Banco").grid(row=1, column=0, sticky="w", pady=(8, 0))
+        ttk.Entry(config_frame, textvariable=self.db_path_var, state="readonly").grid(
+            row=1, column=1, columnspan=4, sticky="ew", padx=(6, 8), pady=(8, 0)
+        )
+        self.choose_db_button = ttk.Button(config_frame, text="Escolher", command=self._pick_db_path)
+        self.choose_db_button.grid(row=1, column=5, sticky="e", pady=(8, 0))
+
+        ttk.Label(config_frame, text="CSV").grid(row=2, column=0, sticky="w", pady=(8, 0))
+        ttk.Entry(config_frame, textvariable=self.output_var, state="readonly").grid(
+            row=2, column=1, columnspan=4, sticky="ew", padx=(6, 8), pady=(8, 0)
+        )
+        self.choose_output_button = ttk.Button(config_frame, text="Salvar como", command=self._pick_output_path)
+        self.choose_output_button.grid(row=2, column=5, sticky="e", pady=(8, 0))
+
         self.start_date_entry.bind("<FocusOut>", lambda _e: self._refresh_monthly_output_default())
         self.end_date_entry.bind("<FocusOut>", lambda _e: self._refresh_monthly_output_default())
 
-        ttk.Label(period_frame, text="Banco local").grid(row=1, column=0, sticky="w", pady=(8, 0))
-        ttk.Entry(period_frame, textvariable=self.db_path_var, state="readonly").grid(
-            row=1, column=1, columnspan=4, sticky="ew", padx=(6, 8), pady=(8, 0)
-        )
-        self.choose_db_button = ttk.Button(period_frame, text="Escolher", command=self._pick_db_path)
-        self.choose_db_button.grid(row=1, column=5, sticky="e", pady=(8, 0))
+        config_frame.columnconfigure(1, weight=1)
+        config_frame.columnconfigure(4, weight=1)
 
-        ttk.Label(period_frame, text="CSV destino").grid(row=2, column=0, sticky="w", pady=(8, 0))
-        ttk.Entry(period_frame, textvariable=self.output_var, state="readonly").grid(
-            row=2, column=1, columnspan=4, sticky="ew", padx=(6, 8), pady=(8, 0)
-        )
-        self.choose_output_button = ttk.Button(period_frame, text="Salvar como", command=self._pick_output_path)
-        self.choose_output_button.grid(row=2, column=5, sticky="e", pady=(8, 0))
-
-        period_frame.columnconfigure(1, weight=1)
-        period_frame.columnconfigure(3, weight=1)
-        period_frame.columnconfigure(4, weight=1)
-
-        actions_frame = ttk.LabelFrame(container, text="3) Acoes", style="Section.TLabelframe")
-        actions_frame.grid(row=3, column=0, sticky="ew", pady=(0, 8))
-        ttk.Label(
-            actions_frame,
-            text="Sincronizacao e exportacao usam todos os aliases selecionados acima.",
-            style="Muted.TLabel",
-        ).grid(row=0, column=0, columnspan=4, sticky="w")
+        actions_frame = ttk.LabelFrame(container, text="Acoes", style="Section.TLabelframe")
+        actions_frame.grid(row=3, column=0, sticky="ew", pady=(8, 0))
 
         self.credentials_button = ttk.Button(actions_frame, text="Credenciais", command=self._configure_credentials_clicked)
-        self.credentials_button.grid(row=1, column=0, sticky="ew", pady=(8, 0))
+        self.credentials_button.grid(row=0, column=0, sticky="ew")
         self.test_button = ttk.Button(actions_frame, text="Testar API", command=self._test_connection_clicked)
-        self.test_button.grid(row=1, column=1, sticky="ew", padx=(8, 0), pady=(8, 0))
+        self.test_button.grid(row=0, column=1, sticky="ew", padx=(8, 0))
         self.update_button = ttk.Button(actions_frame, text="Atualizar App", command=self._update_app_clicked)
-        self.update_button.grid(row=1, column=2, sticky="ew", padx=(8, 0), pady=(8, 0))
+        self.update_button.grid(row=0, column=2, sticky="ew", padx=(8, 0))
 
         self.sync_button = ttk.Button(actions_frame, text="Sincronizar Pedidos", command=self._sync_clicked)
-        self.sync_button.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        self.sync_button.grid(row=1, column=0, sticky="ew", pady=(8, 0))
         self.export_monthly_button = ttk.Button(
             actions_frame,
             text="Exportar Mensal",
             command=self._export_monthly_clicked,
         )
-        self.export_monthly_button.grid(row=2, column=1, sticky="ew", padx=(8, 0), pady=(8, 0))
+        self.export_monthly_button.grid(row=1, column=1, sticky="ew", padx=(8, 0), pady=(8, 0))
         self.reprocess_button = ttk.Button(actions_frame, text="Reprocessar Mes", command=self._reprocess_month_clicked)
-        self.reprocess_button.grid(row=2, column=2, sticky="ew", padx=(8, 0), pady=(8, 0))
+        self.reprocess_button.grid(row=1, column=2, sticky="ew", padx=(8, 0), pady=(8, 0))
         self.export_orders_button = ttk.Button(actions_frame, text="Exportar Pedidos", command=self._export_orders_clicked)
-        self.export_orders_button.grid(row=2, column=3, sticky="ew", padx=(8, 0), pady=(8, 0))
+        self.export_orders_button.grid(row=1, column=3, sticky="ew", padx=(8, 0), pady=(8, 0))
 
         for col in range(4):
             actions_frame.columnconfigure(col, weight=1)
 
-        log_frame = ttk.LabelFrame(container, text="Log de Execucao", style="Section.TLabelframe")
-        log_frame.grid(row=4, column=0, sticky="nsew")
-        self.log_text = tk.Text(log_frame, height=15, wrap="word")
+        log_frame = ttk.LabelFrame(container, text="Log", style="Section.TLabelframe")
+        log_frame.grid(row=4, column=0, sticky="nsew", pady=(8, 0))
+        self.log_text = tk.Text(log_frame, height=14, wrap="word")
         self.log_text.grid(row=0, column=0, sticky="nsew")
         scroll = ttk.Scrollbar(log_frame, orient="vertical", command=self.log_text.yview)
         scroll.grid(row=0, column=1, sticky="ns")
