@@ -101,6 +101,26 @@ Exportar pedidos para CSV:
 python -m app.main export-orders --client unfair_pinkperfect --output exports\unfair_pinkperfect_orders.csv
 ```
 
+Exportar SKUs para CSV (por periodo):
+
+```powershell
+python -m app.main export-skus --client unfair_pinkperfect --start-date 01/02/2026 --end-date 19/02/2026 --output exports\unfair_pinkperfect_skus.csv
+```
+
+Exportar SKUs para CSV (por numero do pedido):
+
+```powershell
+python -m app.main export-skus --client unfair_pinkperfect --order-number 132321 --output exports\unfair_pinkperfect_skus.csv
+```
+
+Colunas do CSV SKUs:
+- `number`
+- `created_at`
+- `sku_id`
+- `item_sku`
+- `quantity`
+- `price_cost`
+
 Listar unidades configuradas e status de token:
 
 ```powershell

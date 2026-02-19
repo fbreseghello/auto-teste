@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from app import __version__
 from app.config import load_clients_config
 from app.database import connect, init_db, upsert_client
-from app.services import export_monthly_sheet_csv, export_orders_csv, sync_yampi_orders
+from app.services import export_monthly_sheet_csv, export_order_skus_csv, export_orders_csv, sync_yampi_orders
 from app.updater import apply_update_from_github, check_for_updates
 
 
@@ -30,6 +30,13 @@ def parse_args() -> argparse.Namespace:
     export = subparsers.add_parser("export-orders", help="Exporta pedidos para CSV.")
     export.add_argument("--client", required=True, help="ID do cliente (config/clients.json).")
     export.add_argument("--output", required=True, help="Caminho do CSV de saida.")
+
+    export_skus = subparsers.add_parser("export-skus", help="Exporta itens/SKUs dos pedidos para CSV.")
+    export_skus.add_argument("--client", required=True, help="ID do cliente (config/clients.json).")
+    export_skus.add_argument("--output", required=True, help="Caminho do CSV de saida.")
+    export_skus.add_argument("--start-date", default="", help="Data inicio (dd/mm/aaaa ou aaaa-mm-dd).")
+    export_skus.add_argument("--end-date", default="", help="Data fim (dd/mm/aaaa ou aaaa-mm-dd).")
+    export_skus.add_argument("--order-number", default="", help="Numero do pedido (prioridade sobre periodo).")
 
     export_monthly = subparsers.add_parser("export-monthly", help="Exporta agregado mensal (1:1 Sheets).")
     export_monthly.add_argument("--client", required=True, help="ID do cliente (config/clients.json).")
@@ -182,11 +189,15 @@ def _run_interactive_menu(conn, clients) -> int:
             if client.platform == "yampi":
                 action = _pick_option(
                     f"Acoes para '{client.id}'",
-                    ["sync", "export_monthly", "export_orders"],
+                    ["sync", "export_monthly", "export_orders", "export_skus"],
                     lambda a: (
                         "Sincronizar pedidos"
                         if a == "sync"
-                        else ("Exportar agregado mensal (Sheets)" if a == "export_monthly" else "Exportar pedidos detalhados")
+                        else (
+                            "Exportar agregado mensal (Sheets)"
+                            if a == "export_monthly"
+                            else ("Exportar pedidos detalhados" if a == "export_orders" else "Exportar itens/SKUs")
+                        )
                     ),
                 )
                 if action is None:
@@ -233,6 +244,34 @@ def _run_interactive_menu(conn, clients) -> int:
                     default_output = f"exports/{client.id}_orders.csv"
                     output = input(f"Caminho do CSV [{default_output}]: ").strip() or default_output
                     count = export_orders_csv(conn, client.id, output)
+                    print(f"Arquivo gerado: {output} ({count} linhas)")
+                    continue
+
+                if action == "export_skus":
+                    order_number = input("Numero do pedido [vazio=filtrar por periodo]: ").strip()
+                    start_date = ""
+                    end_date = ""
+                    if not order_number:
+                        start_date_input = input("Data inicio (dd/mm/aaaa): ").strip()
+                        end_date_input = input("Data fim (dd/mm/aaaa): ").strip()
+                        try:
+                            start_date, end_date = _resolve_sync_window(start_date_input, end_date_input)
+                        except ValueError as exc:
+                            print(f"Erro: {exc}")
+                            continue
+                        if not start_date or not end_date:
+                            print("Erro: informe data inicio e fim, ou numero do pedido.")
+                            continue
+                    default_output = f"exports/{client.id}_skus.csv"
+                    output = input(f"Caminho do CSV [{default_output}]: ").strip() or default_output
+                    count = export_order_skus_csv(
+                        conn,
+                        client.id,
+                        output,
+                        start_date=start_date,
+                        end_date=end_date,
+                        order_number=order_number,
+                    )
                     print(f"Arquivo gerado: {output} ({count} linhas)")
                     continue
 
@@ -355,6 +394,26 @@ def run() -> int:
     if args.command == "export-orders":
         _require_client(clients, args.client)
         count = export_orders_csv(conn, args.client, args.output)
+        print(f"Arquivo gerado: {args.output} ({count} linhas)")
+        return 0
+
+    if args.command == "export-skus":
+        _require_client(clients, args.client)
+        order_number = args.order_number.strip()
+        start_date = ""
+        end_date = ""
+        if not order_number:
+            start_date, end_date = _resolve_sync_window(args.start_date, args.end_date)
+            if not start_date or not end_date:
+                raise ValueError("Informe --order-number ou o periodo completo com --start-date e --end-date.")
+        count = export_order_skus_csv(
+            conn,
+            args.client,
+            args.output,
+            start_date=start_date,
+            end_date=end_date,
+            order_number=order_number,
+        )
         print(f"Arquivo gerado: {args.output} ({count} linhas)")
         return 0
 

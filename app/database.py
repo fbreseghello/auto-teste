@@ -170,6 +170,35 @@ def fetch_orders_for_export(conn: sqlite3.Connection, client_id: str) -> list[sq
     ).fetchall()
 
 
+def fetch_orders_raw_for_sku_export(
+    conn: sqlite3.Connection,
+    client_id: str,
+    start_date: str = "",
+    end_date: str = "",
+) -> list[sqlite3.Row]:
+    where_parts = ["client_id = ?"]
+    params: list[str] = [client_id]
+
+    if start_date:
+        where_parts.append("created_date >= ?")
+        params.append(start_date)
+    if end_date:
+        where_parts.append("created_date <= ?")
+        params.append(end_date)
+
+    where_sql = " AND ".join(where_parts)
+    return conn.execute(
+        f"""
+        SELECT
+            order_id, created_at, raw_json
+        FROM yampi_orders
+        WHERE {where_sql}
+        ORDER BY created_date ASC, order_id ASC
+        """,
+        params,
+    ).fetchall()
+
+
 def fetch_monthly_for_export(
     conn: sqlite3.Connection, client_id: str, start_date: str = "", end_date: str = ""
 ) -> list[sqlite3.Row]:

@@ -11,6 +11,7 @@ from app.database import (
     delete_orders_by_period,
     fetch_monthly_for_export,
     fetch_orders_for_export,
+    fetch_orders_raw_for_sku_export,
     get_cursor,
     set_cursor,
     upsert_orders,
@@ -52,6 +53,18 @@ def _extract_status_name(status: Any) -> str:
             if name:
                 return str(name)
     return str(status)
+
+
+def _extract_datetime(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        date_value = value.get("date")
+        if isinstance(date_value, str):
+            return date_value
+    return str(value)
 
 
 def _to_float(value: Any) -> float:
@@ -114,6 +127,17 @@ def _extract_cancelled_date(order: Dict[str, Any]) -> str:
     if value:
         return value
     return _extract_transaction_field(order, "cancelled_at")
+
+
+def _extract_items(order: Dict[str, Any]) -> list[Dict[str, Any]]:
+    items = order.get("items")
+    if isinstance(items, list):
+        return [item for item in items if isinstance(item, dict)]
+    if isinstance(items, dict):
+        data = items.get("data")
+        if isinstance(data, list):
+            return [item for item in data if isinstance(item, dict)]
+    return []
 
 
 def _iter_month_ranges(start_date: str, end_date: str) -> list[tuple[str, str]]:
@@ -290,6 +314,72 @@ def export_orders_csv(conn, client_id: str, output_path: str) -> int:
             writer.writerow([row[h] for h in headers])
 
     return len(rows)
+
+
+def export_order_skus_csv(
+    conn,
+    client_id: str,
+    output_path: str,
+    start_date: str = "",
+    end_date: str = "",
+    order_number: str = "",
+) -> int:
+    normalized_order_number = order_number.strip()
+    if not normalized_order_number and ((start_date and not end_date) or (end_date and not start_date)):
+        raise ValueError("Para exportar por periodo, informe data inicio e fim.")
+
+    rows = fetch_orders_raw_for_sku_export(
+        conn,
+        client_id,
+        start_date=start_date if not normalized_order_number else "",
+        end_date=end_date if not normalized_order_number else "",
+    )
+
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    headers = [
+        "number",
+        "created_at",
+        "sku_id",
+        "item_sku",
+        "quantity",
+        "price_cost",
+    ]
+
+    line_count = 0
+    with path.open("w", newline="", encoding="utf-8") as csv_file:
+        writer = csv.writer(csv_file, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        writer.writerow(headers)
+
+        for row in rows:
+            try:
+                order = json.loads(row["raw_json"])
+            except (TypeError, json.JSONDecodeError):
+                continue
+            if not isinstance(order, dict):
+                continue
+
+            number = str(_pick(order, "number", "order_number", "id") or "").strip()
+            if normalized_order_number and number != normalized_order_number:
+                continue
+
+            created_at = _extract_datetime(_pick(order, "created_at", "date_created"))
+            items = _extract_items(order)
+            for item in items:
+                writer.writerow(
+                    [
+                        number,
+                        created_at,
+                        _pick(item, "sku_id"),
+                        _pick(item, "item_sku"),
+                        _pick(item, "quantity"),
+                        _pick(item, "price_cost"),
+                    ]
+                )
+                line_count += 1
+
+    return line_count
 
 
 def export_monthly_sheet_csv(

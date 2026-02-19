@@ -13,6 +13,7 @@ from app.connectors.yampi import YampiClient
 from app.database import connect, init_db, upsert_client
 from app.services import (
     export_monthly_sheet_csv,
+    export_order_skus_csv,
     export_orders_csv,
     reprocess_orders_for_period,
     sync_yampi_orders,
@@ -82,6 +83,7 @@ class AppGUI:
         self.status_var = tk.StringVar(value="Pronto")
         self.start_date_var = tk.StringVar()
         self.end_date_var = tk.StringVar()
+        self.order_number_var = tk.StringVar()
         self.db_path_var = tk.StringVar(value="data/local.db")
         self.output_var = tk.StringVar()
         self._company_clients: list = []
@@ -192,6 +194,10 @@ class AppGUI:
         self.choose_output_button = ttk.Button(config_frame, text="Salvar como", command=self._pick_output_path)
         self.choose_output_button.grid(row=2, column=5, sticky="e", pady=(8, 0))
 
+        ttk.Label(config_frame, text="Numero Pedido").grid(row=3, column=0, sticky="w", pady=(8, 0))
+        self.order_number_entry = ttk.Entry(config_frame, textvariable=self.order_number_var, width=20)
+        self.order_number_entry.grid(row=3, column=1, sticky="w", padx=(6, 12), pady=(8, 0))
+
         self.start_date_entry.bind("<FocusOut>", lambda _e: self._refresh_monthly_output_default())
         self.end_date_entry.bind("<FocusOut>", lambda _e: self._refresh_monthly_output_default())
 
@@ -220,8 +226,10 @@ class AppGUI:
         self.reprocess_button.grid(row=1, column=2, sticky="ew", padx=(8, 0), pady=(8, 0))
         self.export_orders_button = ttk.Button(actions_frame, text="Exportar Pedidos", command=self._export_orders_clicked)
         self.export_orders_button.grid(row=1, column=3, sticky="ew", padx=(8, 0), pady=(8, 0))
+        self.export_skus_button = ttk.Button(actions_frame, text="Exportar SKUs", command=self._export_skus_clicked)
+        self.export_skus_button.grid(row=1, column=4, sticky="ew", padx=(8, 0), pady=(8, 0))
 
-        for col in range(4):
+        for col in range(5):
             actions_frame.columnconfigure(col, weight=1)
 
         log_frame = ttk.LabelFrame(container, text="Log", style="Section.TLabelframe")
@@ -481,6 +489,10 @@ class AppGUI:
         stamp = datetime.now().strftime("%Y_%m_%d")
         return str(self._downloads_dir() / f"{client.id}_{stamp}_pedidos.csv")
 
+    def _default_skus_output(self, client) -> str:
+        stamp = datetime.now().strftime("%Y_%m_%d")
+        return str(self._downloads_dir() / f"{client.id}_{stamp}_skus.csv")
+
     def _refresh_monthly_output_default(self) -> None:
         client = self._selected_client()
         if not client:
@@ -539,9 +551,11 @@ class AppGUI:
         self.export_monthly_button.configure(state=state)
         self.reprocess_button.configure(state=state)
         self.export_orders_button.configure(state=state)
+        self.export_skus_button.configure(state=state)
         self.update_button.configure(state=state)
         self.start_date_entry.configure(state=state)
         self.end_date_entry.configure(state=state)
+        self.order_number_entry.configure(state=state)
         self.current_month_button.configure(state=state)
         self.last_30_days_button.configure(state=state)
         self.choose_db_button.configure(state=state)
@@ -1085,6 +1099,121 @@ class AppGUI:
                 lambda total=len(generated_files): messagebox.showinfo(
                     "Sucesso",
                     f"CSV detalhado gerado para {total} cliente(s).",
+                ),
+            )
+            if generated_files:
+                self.root.after(0, lambda first_file=generated_files[0]: self._open_output_folder(first_file))
+
+        self._run_background(task)
+
+    def _export_skus_clicked(self) -> None:
+        clients = self._selected_clients()
+        if not clients:
+            messagebox.showwarning("Selecao", "Escolha pelo menos um alias/filial.")
+            return
+
+        order_number = self.order_number_var.get().strip()
+        start_date = ""
+        end_date = ""
+        if not order_number:
+            try:
+                start_date, end_date = _resolve_window(self.start_date_var.get(), self.end_date_var.get())
+            except ValueError as exc:
+                messagebox.showerror("Data invalida", str(exc))
+                return
+            if not start_date or not end_date:
+                messagebox.showwarning(
+                    "Filtro",
+                    "Informe Numero Pedido ou data inicio e fim.",
+                )
+                return
+
+        single_output = ""
+        if len(clients) == 1:
+            single_output = self.output_var.get().strip()
+            if (
+                not single_output
+                or single_output.lower().endswith("_mensal.csv")
+                or single_output.lower().endswith("_pedidos.csv")
+            ):
+                single_output = self._default_skus_output(clients[0])
+                self.output_var.set(single_output)
+            if not single_output.lower().endswith(".csv"):
+                messagebox.showwarning("Arquivo", "O arquivo de saida deve terminar com .csv.")
+                return
+
+        def task():
+            db_path = self.db_path_var.get().strip() or "data/local.db"
+            conn = connect(db_path)
+            init_db(conn)
+            output_dir = self._output_dir_from_field()
+            output_dir.mkdir(parents=True, exist_ok=True)
+            generated_files: list[str] = []
+            errors: list[tuple[str, str]] = []
+
+            self.root.after(0, lambda: self._log(f"Banco em uso: {db_path}"))
+            for client in clients:
+                output = single_output or str(output_dir / Path(self._default_skus_output(client)).name)
+                try:
+                    filtro = f"pedido={order_number}" if order_number else f"periodo={start_date} ate {end_date}"
+                    self.root.after(
+                        0,
+                        lambda client_id=client.id, path=output, filtro_texto=filtro: self._log(
+                            f"Gerando CSV SKUs de {client_id} ({filtro_texto}): {path}"
+                        ),
+                    )
+                    count = export_order_skus_csv(
+                        conn,
+                        client.id,
+                        output,
+                        start_date=start_date,
+                        end_date=end_date,
+                        order_number=order_number,
+                    )
+                    generated_files.append(output)
+                    self.root.after(
+                        0,
+                        lambda client_id=client.id, lines=count: self._log(
+                            f"CSV SKUs de {client_id} gerado com {lines} linha(s)."
+                        ),
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    errors.append((client.id, str(exc)))
+                    self.root.after(
+                        0,
+                        lambda client_id=client.id, detail=str(exc): self._log(
+                            f"Erro na exportacao de SKUs de {client_id}: {detail}"
+                        ),
+                    )
+            conn.close()
+
+            if errors:
+                error_text = "\n".join(f"{client_id}: {detail}" for client_id, detail in errors)
+                if generated_files:
+                    self.root.after(
+                        0,
+                        lambda total=len(generated_files), text=error_text: messagebox.showwarning(
+                            "Parcial",
+                            f"Exportacao de SKUs parcial.\nArquivos gerados: {total}\n\nFalhas:\n{text}",
+                        ),
+                    )
+                else:
+                    self.root.after(
+                        0,
+                        lambda text=error_text: messagebox.showerror(
+                            "Erro",
+                            f"Nenhum CSV de SKUs foi gerado.\n\nFalhas:\n{text}",
+                        ),
+                    )
+                if generated_files:
+                    self.root.after(0, lambda first_file=generated_files[0]: self._open_output_folder(first_file))
+                return
+
+            self.root.after(
+                0,
+                lambda total=len(generated_files): messagebox.showinfo(
+                    "Sucesso",
+                    f"CSV de SKUs gerado para {total} cliente(s).",
                 ),
             )
             if generated_files:
