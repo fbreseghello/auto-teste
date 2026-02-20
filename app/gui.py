@@ -11,6 +11,10 @@ from app import __version__
 from app.config import load_clients_config, resolve_runtime_paths, save_client_credentials
 from app.connectors.yampi import YampiClient
 from app.database import connect, init_db, upsert_client
+from app.google_sheets import (
+    resolve_monthly_sheets_settings,
+    upload_csv_to_google_sheet,
+)
 from app.services import (
     export_monthly_sheet_csv,
     export_order_skus_csv,
@@ -228,6 +232,12 @@ class AppGUI:
         self.export_orders_button.grid(row=1, column=3, sticky="ew", padx=(8, 0), pady=(8, 0))
         self.export_skus_button = ttk.Button(actions_frame, text="Exportar SKUs", command=self._export_skus_clicked)
         self.export_skus_button.grid(row=1, column=4, sticky="ew", padx=(8, 0), pady=(8, 0))
+        self.export_monthly_sheets_button = ttk.Button(
+            actions_frame,
+            text="Exportar + Enviar Sheets",
+            command=self._export_monthly_sheets_clicked,
+        )
+        self.export_monthly_sheets_button.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(8, 0))
 
         for col in range(5):
             actions_frame.columnconfigure(col, weight=1)
@@ -549,6 +559,7 @@ class AppGUI:
         self.test_button.configure(state=state)
         self.sync_button.configure(state=state)
         self.export_monthly_button.configure(state=state)
+        self.export_monthly_sheets_button.configure(state=state)
         self.reprocess_button.configure(state=state)
         self.export_orders_button.configure(state=state)
         self.export_skus_button.configure(state=state)
@@ -766,6 +777,12 @@ class AppGUI:
         self._run_background(task)
 
     def _export_monthly_clicked(self) -> None:
+        self._export_monthly_common(upload_to_sheets=False)
+
+    def _export_monthly_sheets_clicked(self) -> None:
+        self._export_monthly_common(upload_to_sheets=True)
+
+    def _export_monthly_common(self, upload_to_sheets: bool) -> None:
         clients = self._selected_clients()
         if not clients:
             messagebox.showwarning("Selecao", "Escolha pelo menos um alias/filial.")
@@ -784,6 +801,14 @@ class AppGUI:
         start_date, end_date = _expand_to_month_bounds(start_date, end_date)
         monthly_suffix = self._period_suffix()
 
+        sheets_settings = None
+        if upload_to_sheets:
+            try:
+                sheets_settings = resolve_monthly_sheets_settings()
+            except ValueError as exc:
+                messagebox.showerror("Google Sheets", str(exc))
+                return
+
         single_output = ""
         if len(clients) == 1:
             single_output = self.output_var.get().strip() or self._default_monthly_output(clients[0])
@@ -800,6 +825,7 @@ class AppGUI:
             output_dir.mkdir(parents=True, exist_ok=True)
             generated_files: list[str] = []
             errors: list[tuple[str, str]] = []
+            uploaded_targets: list[tuple[str, str, int]] = []
 
             self.root.after(0, lambda: self._log(f"Banco em uso: {db_path}"))
             for client in clients:
@@ -849,6 +875,29 @@ class AppGUI:
                             f"CSV mensal de {client_id} gerado com {lines} linha(s)."
                         ),
                     )
+                    if upload_to_sheets and sheets_settings:
+                        sheet_name = client.sheets_worksheet.strip() or client.company.strip() or client.id
+                        self.root.after(
+                            0,
+                            lambda client_id=client.id, tab=sheet_name: self._log(
+                                f"Enviando {client_id} para Google Sheets (aba '{tab}')..."
+                            ),
+                        )
+                        uploaded_rows = upload_csv_to_google_sheet(
+                            csv_path=output,
+                            spreadsheet_id=sheets_settings.spreadsheet_id,
+                            worksheet_name=sheet_name,
+                            credentials_json_path=sheets_settings.credentials_json_path,
+                            clear_before_upload=sheets_settings.clear_before_upload,
+                            create_worksheet_if_missing=sheets_settings.create_worksheet_if_missing,
+                        )
+                        uploaded_targets.append((client.id, sheet_name, uploaded_rows))
+                        self.root.after(
+                            0,
+                            lambda client_id=client.id, tab=sheet_name, rows=uploaded_rows: self._log(
+                                f"Google Sheets atualizado para {client_id} (aba '{tab}', {rows} linha(s))."
+                            ),
+                        )
                 except Exception as exc:  # noqa: BLE001
                     errors.append((client.id, str(exc)))
                     self.root.after(
@@ -881,13 +930,25 @@ class AppGUI:
                     self.root.after(0, lambda first_file=generated_files[0]: self._open_output_folder(first_file))
                 return
 
-            self.root.after(
-                0,
-                lambda total=len(generated_files): messagebox.showinfo(
-                    "Sucesso",
-                    f"CSV mensal gerado para {total} cliente(s).",
-                ),
-            )
+            if upload_to_sheets:
+                self.root.after(
+                    0,
+                    lambda total=len(generated_files), uploaded=len(uploaded_targets): messagebox.showinfo(
+                        "Sucesso",
+                        (
+                            f"CSV mensal gerado para {total} cliente(s).\n"
+                            f"Google Sheets atualizado para {uploaded} cliente(s)."
+                        ),
+                    ),
+                )
+            else:
+                self.root.after(
+                    0,
+                    lambda total=len(generated_files): messagebox.showinfo(
+                        "Sucesso",
+                        f"CSV mensal gerado para {total} cliente(s).",
+                    ),
+                )
             if generated_files:
                 self.root.after(0, lambda first_file=generated_files[0]: self._open_output_folder(first_file))
 

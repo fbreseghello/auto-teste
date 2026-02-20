@@ -38,6 +38,30 @@ Observacoes:
 - o CSV mensal vai por padrao para `Downloads`.
 - ao finalizar exportacao, a pasta do arquivo e aberta automaticamente.
 
+### Envio automatico para Google Sheets
+
+Agora o app suporta o botao `Exportar + Enviar Sheets`.
+
+Passo a passo:
+
+1. Crie uma `Service Account` no Google Cloud com acesso ao Google Sheets API.
+2. Baixe o JSON da conta de servico para sua maquina.
+3. Compartilhe a planilha de destino com o e-mail da Service Account (permissao de editor).
+4. No `.env`, adicione:
+   - `GOOGLE_SHEETS_SPREADSHEET_ID`
+   - `GOOGLE_SHEETS_CREDENTIALS_JSON` (caminho completo do JSON)
+   - `GOOGLE_SHEETS_WORKSHEET_PREFIX` (opcional, ex: `mensal_`)
+   - `GOOGLE_SHEETS_CLEAR_BEFORE_UPLOAD` (`1` para limpar a aba antes de enviar)
+   - `GOOGLE_SHEETS_CREATE_WORKSHEET_IF_MISSING` (`0` para exigir aba existente; recomendado)
+5. Instale dependencias: `pip install -r requirements.txt`.
+6. Abra o app e clique em `Exportar + Enviar Sheets`.
+
+Comportamento:
+- para cada alias selecionado, o app gera o CSV mensal e envia para uma aba no Sheets
+- aba alvo: `sheets_worksheet` do `clients.json` (quando definido), senao `company`
+- por padrao, o app nao cria aba nova (`GOOGLE_SHEETS_CREATE_WORKSHEET_IF_MISSING=0`)
+- opcional: no `clients.json`, defina `sheets_worksheet` para forcar envio para uma aba especifica (ex.: `Aurha`, `Noue`, `Nouê`)
+
 Controles anti-erro na interface:
 - botoes ficam bloqueados durante execucao em background
 - seletores de cliente ficam bloqueados durante execucao

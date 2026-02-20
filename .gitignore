@@ -9,3 +9,11 @@ config/clients.json
 data/
 exports/
 clientes/
+# Google service account key
+*.json
+!config/clients.example.json
+config/*.json
+!config/clients.example.json
+secrets/
+config/api-sheets-*.json
+

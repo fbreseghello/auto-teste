@@ -28,6 +28,7 @@ class ClientConfig:
     user_secret_key: str
     user_secret_key_env: str
     page_size: int = 100
+    sheets_worksheet: str = ""
 
 
 DEFAULT_CONFIG_PATH = "config/clients.json"
@@ -183,6 +184,7 @@ def load_clients_config(config_path: str = DEFAULT_CONFIG_PATH) -> Dict[str, Cli
             user_secret_key=user_secret_key,
             user_secret_key_env=user_secret_key_env,
             page_size=int(item.get("page_size", 100)),
+            sheets_worksheet=item.get("sheets_worksheet", "").strip(),
         )
         if client.id in clients:
             raise ValueError(f"ID duplicado no config: '{client.id}'.")
